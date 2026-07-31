@@ -1,17 +1,21 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import axios from 'axios';
 import { useToast } from '../../components/Toast';
 import { useNavigate } from 'react-router-dom';
+import { Search, Package } from 'lucide-react';
 
 const BulkOrderForm = () => {
   const [catalog, setCatalog] = useState<any[]>([]);
+  const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // state: { productId: quantity }
+  // orderData maps variant_id to quantity
   const [orderData, setOrderData] = useState<Record<number, number>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
     fetchCatalog();
@@ -20,9 +24,13 @@ const BulkOrderForm = () => {
   const fetchCatalog = async () => {
     try {
       const response = await axios.get('http://localhost:5001/api/products');
-      // The backend returns products. We will filter out any products that have no variants just in case.
       const validProducts = response.data.filter((p: any) => p.variants && p.variants.length > 0);
       setCatalog(validProducts);
+      
+      // Auto-expand all by default
+      const initialExpand: Record<number, boolean> = {};
+      validProducts.forEach((p: any) => initialExpand[p.product_id] = true);
+      setExpandedProducts(initialExpand);
     } catch (err) {
       showToast('Failed to load product catalog.', 'error');
     } finally {
@@ -30,14 +38,18 @@ const BulkOrderForm = () => {
     }
   };
 
-  const handleQtyChange = (productId: number, value: string) => {
+  const toggleExpand = (productId: number) => {
+    setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
+  };
+
+  const handleQtyChange = (variantId: number, value: string) => {
     const qty = parseInt(value, 10);
     setOrderData(prev => {
       const newData = { ...prev };
       if (isNaN(qty) || qty <= 0) {
-        delete newData[productId];
+        delete newData[variantId];
       } else {
-        newData[productId] = qty;
+        newData[variantId] = qty;
       }
       return newData;
     });
@@ -47,11 +59,13 @@ const BulkOrderForm = () => {
     let q = 0;
     let v = 0;
     catalog.forEach(product => {
-      const qty = orderData[product.product_id];
-      if (qty) {
-        q += qty;
-        v += (qty * product.variants[0].distributor_rate);
-      }
+      product.variants.forEach((variant: any) => {
+        const qty = orderData[variant.variant_id];
+        if (qty) {
+          q += qty;
+          v += (qty * variant.distributor_rate);
+        }
+      });
     });
     return { grandTotalQty: q, grandTotalValue: v };
   }, [orderData, catalog]);
@@ -68,16 +82,18 @@ const BulkOrderForm = () => {
       if (!user.user_id) throw new Error("Not logged in");
 
       const items: { variant_id: number, requested_qty: number, price_at_order: number }[] = [];
-      
+
       catalog.forEach(product => {
-        const qty = orderData[product.product_id];
-        if (qty) {
-          items.push({
-            variant_id: product.variants[0].variant_id,
-            requested_qty: qty,
-            price_at_order: product.variants[0].distributor_rate
-          });
-        }
+        product.variants.forEach((variant: any) => {
+          const qty = orderData[variant.variant_id];
+          if (qty) {
+            items.push({
+              variant_id: variant.variant_id,
+              requested_qty: qty,
+              price_at_order: variant.distributor_rate
+            });
+          }
+        });
       });
 
       await axios.post('http://localhost:5001/api/orders', {
@@ -86,7 +102,7 @@ const BulkOrderForm = () => {
       });
 
       showToast('Order placed successfully!', 'success');
-      setOrderData({}); 
+      setOrderData({});
       navigate('/distributor/orders');
     } catch (err) {
       console.error(err);
@@ -96,77 +112,164 @@ const BulkOrderForm = () => {
     }
   };
 
+  const categories = useMemo(() => {
+    const cats = new Set(catalog.map(p => p?.category_name).filter(c => typeof c === 'string' && c.trim() !== ''));
+    return ['All', ...Array.from(cats)];
+  }, [catalog]);
+
   if (loading) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Loading Catalog...</div>;
   }
 
+  const filteredCatalog = catalog.filter(product => {
+    const matchesSearch = (product?.name || '').toLowerCase().includes((searchQuery || '').toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || product?.category_name === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   return (
-    <div style={{ paddingBottom: '100px' }}>
-      <div className="page-header">
-        <h2 className="page-title">Bulk Purchase Order Form</h2>
+    <div style={{ paddingBottom: '80px' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', marginTop: '-20px' }}>
+        <h2 className="page-title" style={{ margin: 0 }}>Bulk Purchase Order Form</h2>
+
+        {/* Category Dropdown & Search Bar */}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              fontSize: '14px',
+              outlineColor: 'var(--primary)',
+              background: '#fff',
+              cursor: 'pointer',
+              minWidth: '150px'
+            }}
+          >
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          <div style={{ position: 'relative', width: '300px' }}>
+            <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+              <Search size={16} />
+            </div>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px 8px 36px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                fontSize: '14px',
+                outlineColor: 'var(--primary)',
+              }}
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="data-card" style={{ padding: 0, overflowX: 'auto', border: '2px solid #e2e8f0', borderRadius: '12px' }}>
+      <div className="data-card" style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', border: '2px solid #e2e8f0', borderRadius: '12px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
           <thead>
             <tr>
-              <th style={{ padding: '16px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700 }}>
+              <th style={{ position: 'sticky', top: 0, zIndex: 10, padding: '10px 12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>
                 PRODUCT NAME
               </th>
-              <th style={{ padding: '16px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600 }}>
+              <th style={{ position: 'sticky', top: 0, zIndex: 10, padding: '10px 12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>
                 PACK SIZE
               </th>
-              <th style={{ padding: '16px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600 }}>
+              <th style={{ position: 'sticky', top: 0, zIndex: 10, padding: '10px 12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>
                 PRICE / BOX (₹)
               </th>
-              <th style={{ padding: '16px', background: '#f0fdf4', borderBottom: '2px solid #cbd5e1', color: '#166534', fontWeight: 700, width: '150px' }}>
+              <th style={{ position: 'sticky', top: 0, zIndex: 10, padding: '10px 12px', background: '#f0fdf4', borderBottom: '2px solid #cbd5e1', color: '#166534', fontWeight: 700, width: '120px', fontSize: '13px' }}>
                 QTY (BOXES)
               </th>
-              <th style={{ padding: '16px', background: '#f0fdf4', borderBottom: '2px solid #cbd5e1', color: '#166534', fontWeight: 700, textAlign: 'right' }}>
+              <th style={{ position: 'sticky', top: 0, zIndex: 10, padding: '10px 12px', background: '#f0fdf4', borderBottom: '2px solid #cbd5e1', color: '#166534', fontWeight: 700, textAlign: 'right', fontSize: '13px' }}>
                 TOTAL VALUE (₹)
               </th>
             </tr>
           </thead>
           <tbody>
-            {catalog.map((product, index) => {
-              const variant = product.variants[0];
-              const qty = orderData[product.product_id] || '';
-              const rowValue = qty ? (qty * variant.distributor_rate) : 0;
-              
+            {filteredCatalog.map((product) => {
+              const isExpanded = expandedProducts[product.product_id];
               return (
-                <tr key={product.product_id} style={{ background: index % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '12px 16px', fontWeight: 600, color: '#0f172a' }}>
-                    {product.name}
-                  </td>
-                  <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                    {variant.pack_size}
-                  </td>
-                  <td style={{ padding: '12px 16px', color: '#64748b', fontWeight: 500 }}>
-                    ₹{variant.distributor_rate.toFixed(2)}
-                  </td>
-                  <td style={{ padding: '12px 16px', background: '#f0fdf4' }}>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={qty}
-                      onChange={(e) => handleQtyChange(product.product_id, e.target.value)}
-                      style={{ 
-                        width: '100%', 
-                        padding: '8px', 
-                        textAlign: 'center', 
-                        border: '1px solid #cbd5e1', 
-                        borderRadius: '6px',
-                        outlineColor: 'var(--primary)',
-                        fontWeight: 'bold',
-                        fontSize: '16px'
-                      }}
-                    />
-                  </td>
-                  <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 'bold', color: rowValue > 0 ? '#166534' : '#9ca3af', background: '#f0fdf4' }}>
-                    ₹{rowValue.toFixed(2)}
-                  </td>
-                </tr>
+                <Fragment key={product.product_id}>
+                  {/* Master Product Header Row */}
+                  <tr 
+                    style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
+                    onClick={() => toggleExpand(product.product_id)}
+                  >
+                    <td colSpan={5} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
+                          {isExpanded ? '▼' : '▶'}
+                        </span>
+                        <div style={{ 
+                          width: '32px', height: '32px', background: '#e2e8f0', borderRadius: '6px', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8'
+                        }}>
+                          <Package size={18} />
+                        </div>
+                        <div>
+                          {product.name}
+                          <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: 'normal', background: '#e2e8f0', padding: '2px 8px', borderRadius: '12px' }}>
+                            {product.variants.length} Variants
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Nested Variant Rows */}
+                  {isExpanded && product.variants.map((variant: any) => {
+                    const qty = orderData[variant.variant_id] || '';
+                    const rowValue = qty ? (qty * variant.distributor_rate) : 0;
+                    
+                    return (
+                      <tr key={variant.variant_id} style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '6px 12px', paddingLeft: '80px', color: '#64748b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+                          {variant.pack_size}
+                        </td>
+                        <td style={{ padding: '6px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>
+                          {variant.pack_size}
+                        </td>
+                        <td style={{ padding: '6px 12px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>
+                          ₹{variant.distributor_rate.toFixed(2)}
+                        </td>
+                        <td style={{ padding: '6px 12px', background: '#f0fdf4' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={qty}
+                            onChange={(e) => handleQtyChange(variant.variant_id, e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '4px 8px',
+                              textAlign: 'center',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '4px',
+                              outlineColor: 'var(--primary)',
+                              fontWeight: 'bold',
+                              fontSize: '14px'
+                            }}
+                          />
+                        </td>
+                        <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', color: rowValue > 0 ? '#166534' : '#9ca3af', background: '#f0fdf4', fontSize: '13px' }}>
+                          ₹{rowValue.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
               );
             })}
           </tbody>
@@ -177,10 +280,10 @@ const BulkOrderForm = () => {
       <div style={{
         position: 'fixed',
         bottom: 0,
-        left: '250px', // Adjust depending on sidebar width
+        left: '250px',
         right: 0,
         background: '#fff',
-        padding: '16px 32px',
+        padding: '12px 24px',
         boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
         display: 'flex',
         justifyContent: 'space-between',
@@ -198,12 +301,12 @@ const BulkOrderForm = () => {
           </div>
         </div>
 
-        <button 
-          onClick={handleSubmitOrder} 
+        <button
+          onClick={handleSubmitOrder}
           disabled={submitting || grandTotalQty === 0}
           style={{
-            padding: '16px 32px',
-            fontSize: '18px',
+            padding: '12px 24px',
+            fontSize: '16px',
             fontWeight: 'bold',
             background: (submitting || grandTotalQty === 0) ? '#cbd5e1' : 'var(--primary)',
             color: '#fff',

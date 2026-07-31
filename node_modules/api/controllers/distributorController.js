@@ -49,6 +49,69 @@ exports.addDistributor = async (req, res) => {
     }
 };
 
+// POST /api/distributors/bulk
+exports.bulkUploadDistributors = async (req, res) => {
+    try {
+        const distributors = req.body; // Expects an array of objects
+        
+        if (!Array.isArray(distributors) || distributors.length === 0) {
+            return res.status(400).json({ message: 'Invalid data format. Expected a non-empty array.' });
+        }
+
+        // For simplicity and safety with hashes, we'll loop with individual requests.
+        let successCount = 0;
+        let skipCount = 0;
+
+        for (const dist of distributors) {
+            const { firm_name, gst_number, address, phone_number, password } = dist;
+            
+            if (!firm_name || !phone_number || !password) {
+                skipCount++;
+                continue; // Skip invalid rows
+            }
+
+            try {
+                const request = new sql.Request();
+                // Check if phone number already exists
+                const check = await request.query(`SELECT user_id FROM Users WHERE phone_number = '${phone_number}'`);
+                if (check.recordset.length > 0) {
+                    skipCount++;
+                    continue; // Skip existing phone numbers
+                }
+
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(password, salt);
+
+                request.input('role', sql.VarChar, 'DISTRIBUTOR');
+                request.input('firm_name', sql.VarChar, firm_name);
+                request.input('gst_number', sql.VarChar, gst_number || null);
+                request.input('address', sql.VarChar, address || null);
+                request.input('phone_number', sql.VarChar, phone_number);
+                request.input('password_hash', sql.VarChar, hashedPassword);
+
+                await request.query(`
+                    INSERT INTO Users (role, firm_name, gst_number, address, phone_number, password_hash)
+                    VALUES (@role, @firm_name, @gst_number, @address, @phone_number, @password_hash)
+                `);
+                
+                successCount++;
+            } catch (innerErr) {
+                console.error("Row insert error:", innerErr);
+                skipCount++;
+            }
+        }
+
+        res.status(200).json({ 
+            message: 'Bulk upload completed', 
+            successCount, 
+            skipCount 
+        });
+    } catch (err) {
+        console.error("Bulk Upload Error:", err);
+        res.status(500).json({ message: 'Failed to process bulk upload' });
+    }
+};
+
 // PUT /api/distributors/:id
 exports.updateDistributor = async (req, res) => {
     try {

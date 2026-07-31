@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { Search, Edit, Trash2, Filter } from 'lucide-react';
+import { Search, Edit, Trash2, Filter, Upload } from 'lucide-react';
+import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
 
 const AdminDistributors = () => {
@@ -8,6 +9,9 @@ const AdminDistributors = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { showToast } = useToast();
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingBulk, setUploadingBulk] = useState(false);
 
   // Pagination, Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +111,33 @@ const AdminDistributors = () => {
     }
   };
 
+  const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingBulk(true);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const res = await axios.post('http://localhost:5001/api/distributors/bulk', results.data);
+          showToast(`Bulk upload success: ${res.data.successCount} added, ${res.data.skipCount} skipped.`, 'success');
+          fetchDistributors();
+        } catch (err: any) {
+          showToast(err.response?.data?.message || 'Bulk upload failed', 'error');
+        } finally {
+          setUploadingBulk(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      },
+      error: (err) => {
+        showToast('Error parsing CSV file', 'error');
+        setUploadingBulk(false);
+      }
+    });
+  };
+
   // Filter and Pagination Logic
   const filteredDistributors = useMemo(() => distributors.filter(d => {
     const matchesSearch = d.firm_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -140,9 +171,27 @@ const AdminDistributors = () => {
     <div>
       <div className="page-header">
         <h2 className="page-title">Distributors</h2>
-        <button className="primary-btn" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : '+ Add New Distributor'}
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <input 
+            type="file" 
+            accept=".csv" 
+            style={{ display: 'none' }} 
+            ref={fileInputRef} 
+            onChange={handleBulkUpload}
+          />
+          <button 
+            className="secondary-btn" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingBulk}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Upload size={16} />
+            {uploadingBulk ? 'Uploading...' : 'Bulk Upload (CSV)'}
+          </button>
+          <button className="primary-btn" onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Cancel' : '+ Add New Distributor'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}

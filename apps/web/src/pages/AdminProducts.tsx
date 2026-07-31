@@ -1,14 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Search, Edit, Trash2, Filter } from 'lucide-react';
+import { Search, Edit, Trash2, Filter, Upload, Plus, Package } from 'lucide-react';
+import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
 
 const AdminProducts = () => {
-  const [flatVariants, setFlatVariants] = useState<any[]>([]);
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { showToast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Pagination, Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,10 +23,14 @@ const AdminProducts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Edit Modal State
+  // Edit & Add Variant Modal State
   const [editingVariant, setEditingVariant] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const [addingVariantTo, setAddingVariantTo] = useState<any>(null);
+  const [newVariantForm, setNewVariantForm] = useState({ pack_size: '', distributor_rate: '', retailer_rate: '', mrp: '' });
+  const [isAddingVariant, setIsAddingVariant] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -31,32 +39,17 @@ const AdminProducts = () => {
   const fetchProducts = async () => {
     try {
       const response = await axios.get('http://localhost:5001/api/products');
-      const data = response.data;
-
-      // Flatten to exactly match Excel columns
-      const flat: any[] = [];
-      data.forEach((p: any) => {
-        if (p.variants && p.variants.length > 0) {
-          p.variants.forEach((v: any) => {
-            flat.push({
-              product_id: p.product_id,
-              variant_id: v.variant_id,
-              category_name: p.category_name,
-              product_name: p.name,
-              hsn_code: p.hsn_code,
-              pack_size: v.pack_size,
-              distributor_rate: v.distributor_rate,
-              retailer_rate: v.retailer_rate,
-            });
-          });
-        }
-      });
-      setFlatVariants(flat);
+      const validProducts = response.data.filter((p: any) => p.variants && p.variants.length > 0);
+      setCatalog(validProducts);
     } catch (err) {
       setError('Failed to fetch products');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleExpand = (productId: number) => {
+    setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
   };
 
   const handleDelete = async (variant_id: number) => {
@@ -69,6 +62,34 @@ const AdminProducts = () => {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const response = await axios.post('http://localhost:5001/api/products/bulk', results.data);
+          showToast(`Upload complete: ${response.data.successCount} added, ${response.data.skipCount} skipped.`, 'success');
+          fetchProducts();
+        } catch (err: any) {
+          showToast(err.response?.data?.message || 'Failed to upload products', 'error');
+        } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = ''; // reset input
+        }
+      },
+      error: (error: any) => {
+        showToast(`Error parsing CSV: ${error.message}`, 'error');
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    });
+  };
+
   const openEditModal = (variant: any) => {
     setEditingVariant(variant);
     setEditForm({ ...variant });
@@ -79,50 +100,85 @@ const AdminProducts = () => {
     setIsUpdating(true);
     try {
       await axios.put(`http://localhost:5001/api/products/${editingVariant.variant_id}`, {
-        name: editForm.product_name,
-        category_name: editForm.category_name,
-        hsn_code: editForm.hsn_code,
+        name: editingVariant.product_name, // Name changes are mostly handled at master product level now
+        category_name: editingVariant.category_name,
+        hsn_code: editingVariant.hsn_code,
         pack_size: editForm.pack_size,
         distributor_rate: parseFloat(editForm.distributor_rate),
         retailer_rate: parseFloat(editForm.retailer_rate)
       });
       setEditingVariant(null);
       fetchProducts();
-      showToast('Product updated successfully!', 'success');
+      showToast('Variant updated successfully!', 'success');
     } catch (err) {
-      showToast('Failed to update product', 'error');
+      showToast('Failed to update variant', 'error');
     } finally {
       setIsUpdating(false);
     }
   };
 
+  const handleAddVariantSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAddingVariant(true);
+    try {
+        // We'll reuse the bulk upload or direct variant insert if possible, 
+        // but for now we can just send it to a theoretical endpoint or update the addProduct logic.
+        // Actually, let's just make a quick POST to /api/products using the same payload format, but wait...
+        // If we add a variant, the API doesn't have a direct endpoint for adding a variant to an existing product in productRoutes.js.
+        // Let's implement it quickly in the frontend: 
+        // We could just add a new route, but for now we'll do it safely.
+        // I will add a new endpoint in the backend for POST /api/products/:id/variants
+        await axios.post(`http://localhost:5001/api/products/${addingVariantTo.product_id}/variants`, {
+            pack_size: newVariantForm.pack_size,
+            distributor_rate: parseFloat(newVariantForm.distributor_rate),
+            retailer_rate: parseFloat(newVariantForm.retailer_rate),
+            mrp: parseFloat(newVariantForm.mrp) || 0
+        });
+        showToast('Variant added successfully!', 'success');
+        setAddingVariantTo(null);
+        setNewVariantForm({ pack_size: '', distributor_rate: '', retailer_rate: '', mrp: '' });
+        fetchProducts();
+        setExpandedProducts(prev => ({ ...prev, [addingVariantTo.product_id]: true }));
+    } catch (err) {
+        showToast('Failed to add variant. Ensure backend supports this route.', 'error');
+    } finally {
+        setIsAddingVariant(false);
+    }
+  };
+
+
   // Extract unique categories for filter dropdown
   const categories = useMemo(() => {
-    const cats = flatVariants.map(v => v.category_name).filter(Boolean);
+    const cats = catalog.map(p => p.category_name).filter(Boolean);
     return ['All', ...Array.from(new Set(cats))];
-  }, [flatVariants]);
+  }, [catalog]);
 
   // Extract unique HSN codes
   const hsnCodes = useMemo(() => {
-    const codes = flatVariants.map(v => v.hsn_code).filter(Boolean);
+    const codes = catalog.map(p => p.hsn_code).filter(Boolean);
     return ['All', ...Array.from(new Set(codes))];
-  }, [flatVariants]);
+  }, [catalog]);
 
   // Filter and Pagination Logic
-  const filteredVariants = useMemo(() => flatVariants.filter(v => {
-    const matchesSearch = v.product_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (v.category_name && v.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'All' || v.category_name === selectedCategory;
-    const matchesHsn = selectedHsn === 'All' || v.hsn_code === selectedHsn;
-    const matchesMin = minRate === '' || parseFloat(v.distributor_rate) >= parseFloat(minRate);
-    const matchesMax = maxRate === '' || parseFloat(v.distributor_rate) <= parseFloat(maxRate);
-    return matchesSearch && matchesCategory && matchesHsn && matchesMin && matchesMax;
-  }), [flatVariants, searchQuery, selectedCategory, selectedHsn, minRate, maxRate]);
+  const filteredCatalog = useMemo(() => catalog.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (p.category_name && p.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory = selectedCategory === 'All' || p.category_name === selectedCategory;
+    const matchesHsn = selectedHsn === 'All' || p.hsn_code === selectedHsn;
+    
+    const hasMatchingVariant = p.variants.some((v: any) => {
+        const matchesMin = minRate === '' || parseFloat(v.distributor_rate) >= parseFloat(minRate);
+        const matchesMax = maxRate === '' || parseFloat(v.distributor_rate) <= parseFloat(maxRate);
+        return matchesMin && matchesMax;
+    });
 
-  const totalPages = Math.ceil(filteredVariants.length / itemsPerPage);
+    return matchesSearch && matchesCategory && matchesHsn && hasMatchingVariant;
+  }), [catalog, searchQuery, selectedCategory, selectedHsn, minRate, maxRate]);
+
+  const totalPages = Math.ceil(filteredCatalog.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredVariants.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = filteredCatalog.slice(indexOfFirstItem, indexOfLastItem);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
@@ -142,17 +198,35 @@ const AdminProducts = () => {
     <div>
       <div className="page-header">
         <h2 className="page-title">Products Catalogue</h2>
-        <Link to="/admin/products/add" className="primary-btn">
-          + Add New Product
-        </Link>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <input 
+            type="file" 
+            accept=".csv" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            style={{ display: 'none' }} 
+          />
+          <button 
+            className="secondary-btn" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Upload size={18} />
+            {isUploading ? 'Uploading...' : 'Bulk Upload'}
+          </button>
+          <Link to="/admin/products/add" className="primary-btn">
+            + Add New Product
+          </Link>
+        </div>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="data-card">
+      <div className="data-card" style={{ padding: 0 }}>
         {loading ? (
           <div style={{ padding: '20px', textAlign: 'center' }}>Loading products...</div>
-        ) : flatVariants.length === 0 ? (
+        ) : catalog.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
             No products found. Click "Add New Product" to create your catalogue.
           </div>
@@ -232,82 +306,105 @@ const AdminProducts = () => {
                 </div>
 
                 <span style={{ color: 'var(--text-muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                  Showing {filteredVariants.length === 0 ? 0 : indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredVariants.length)} of {filteredVariants.length} entries
+                  Showing {filteredCatalog.length === 0 ? 0 : indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredCatalog.length)} of {filteredCatalog.length} products
                 </span>
               </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table className="data-table">
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                 <thead>
                   <tr>
-                    <th>PRODUCT CATEGORY</th>
-                    <th>PRODUCT NAME</th>
-                    <th>HSN CODE</th>
-                    <th>PCS IN BOX/BAG</th>
-                    <th>DISTRIBUTOR RATE</th>
-                    <th>RETAILER RATE</th>
-                    <th>ACTIONS</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>PRODUCT NAME</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>CATEGORY</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>HSN CODE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>D RATE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>R RATE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'right' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentItems.length > 0 ? (
-                    currentItems.map((v) => (
-                      <tr key={v.variant_id}>
-                        <td>{v.category_name || '-'}</td>
-                        <td style={{ fontWeight: 500 }}>{v.product_name}</td>
-                        <td>{v.hsn_code || '-'}</td>
-                        <td>{v.pack_size}</td>
-                        <td>₹{v.distributor_rate}</td>
-                        <td>₹{v.retailer_rate}</td>
-                        <td style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button 
-                            onClick={() => openEditModal(v)}
-                            title="Edit Product"
-                            style={{ 
-                              background: '#eff6ff', 
-                              border: 'none', 
-                              color: 'var(--primary)', 
-                              cursor: 'pointer', 
-                              padding: '6px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
+                    currentItems.map((product) => {
+                      const isExpanded = expandedProducts[product.product_id];
+                      return (
+                        <Fragment key={product.product_id}>
+                          {/* Master Product Header Row */}
+                          <tr 
+                            style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
+                            onClick={() => toggleExpand(product.product_id)}
                           >
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(v.variant_id)}
-                            title="Delete Product"
-                            style={{ 
-                              background: '#fef2f2', 
-                              border: 'none', 
-                              color: '#ef4444', 
-                              cursor: 'pointer',
-                              padding: '6px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                            <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
+                                  {isExpanded ? '▼' : '▶'}
+                                </span>
+                                <div style={{ 
+                                  width: '32px', height: '32px', background: '#e2e8f0', borderRadius: '6px', 
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8'
+                                }}>
+                                  <Package size={18} />
+                                </div>
+                                <div>
+                                  {product.name}
+                                  <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: 'normal', background: '#e2e8f0', padding: '2px 8px', borderRadius: '12px' }}>
+                                    {product.variants.length} Variants
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setAddingVariantTo(product); }}
+                                style={{
+                                  background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)',
+                                  padding: '4px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto'
+                                }}
+                              >
+                                <Plus size={14} /> Add Variant
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Nested Variant Rows */}
+                          {isExpanded && product.variants.map((v: any) => (
+                            <tr key={v.variant_id} style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '8px 12px', paddingLeft: '80px', color: '#64748b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+                                {v.pack_size}
+                              </td>
+                              <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.category_name || '-'}</td>
+                              <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.hsn_code || '-'}</td>
+                              <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pack_size}</td>
+                              <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>₹{v.distributor_rate.toFixed(2)}</td>
+                              <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>₹{v.retailer_rate.toFixed(2)}</td>
+                              <td style={{ padding: '8px 12px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button 
+                                  onClick={() => openEditModal({ ...v, product_name: product.name, category_name: product.category_name, hsn_code: product.hsn_code })}
+                                  title="Edit Variant"
+                                  style={{ background: '#eff6ff', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '6px', borderRadius: '6px' }}
+                                >
+                                  <Edit size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDelete(v.variant_id)}
+                                  title="Delete Variant"
+                                  style={{ background: '#fef2f2', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px', borderRadius: '6px' }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                        No products match your search.
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                        No products match your filters.
                       </td>
                     </tr>
                   )}
@@ -368,19 +465,7 @@ const AdminProducts = () => {
             <form onSubmit={handleUpdate}>
               <div className="form-grid">
                 <div className="input-group">
-                  <label>Product Category</label>
-                  <input type="text" value={editForm.category_name || ''} onChange={(e) => setEditForm({...editForm, category_name: e.target.value})} required />
-                </div>
-                <div className="input-group">
-                  <label>Product Name</label>
-                  <input type="text" value={editForm.product_name || ''} onChange={(e) => setEditForm({...editForm, product_name: e.target.value})} required />
-                </div>
-                <div className="input-group">
-                  <label>HSN Code</label>
-                  <input type="text" value={editForm.hsn_code || ''} onChange={(e) => setEditForm({...editForm, hsn_code: e.target.value})} />
-                </div>
-                <div className="input-group">
-                  <label>Pcs in Box / Pack Size</label>
+                  <label>Pcs in Box / Pack Size (e.g., 5Rs (180 PCS))</label>
                   <input type="text" value={editForm.pack_size || ''} onChange={(e) => setEditForm({...editForm, pack_size: e.target.value})} required />
                 </div>
                 <div className="input-group">
@@ -396,6 +481,45 @@ const AdminProducts = () => {
                 <button type="button" className="secondary-btn" onClick={() => setEditingVariant(null)}>Cancel</button>
                 <button type="submit" className="primary-btn" disabled={isUpdating}>
                   {isUpdating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Variant Modal */}
+      {addingVariantTo && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '600px' }}>
+            <h3 style={{ marginBottom: '8px', fontSize: '20px' }}>Add New Variant</h3>
+            <p style={{ color: '#64748b', marginBottom: '24px' }}>Adding variant to <strong>{addingVariantTo.name}</strong></p>
+            <form onSubmit={handleAddVariantSubmit}>
+              <div className="form-grid">
+                <div className="input-group">
+                  <label>Pack Size (e.g. 5Rs (180 PCS))</label>
+                  <input type="text" value={newVariantForm.pack_size} onChange={(e) => setNewVariantForm({...newVariantForm, pack_size: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>Distributor Rate (₹)</label>
+                  <input type="number" step="0.01" value={newVariantForm.distributor_rate} onChange={(e) => setNewVariantForm({...newVariantForm, distributor_rate: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>Retailer Rate (₹)</label>
+                  <input type="number" step="0.01" value={newVariantForm.retailer_rate} onChange={(e) => setNewVariantForm({...newVariantForm, retailer_rate: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>MRP (₹)</label>
+                  <input type="number" step="0.01" value={newVariantForm.mrp} onChange={(e) => setNewVariantForm({...newVariantForm, mrp: e.target.value})} required />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                <button type="button" className="secondary-btn" onClick={() => setAddingVariantTo(null)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={isAddingVariant}>
+                  {isAddingVariant ? 'Adding...' : 'Add Variant'}
                 </button>
               </div>
             </form>

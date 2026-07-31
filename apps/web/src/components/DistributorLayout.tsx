@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import '../styles/AdminLayout.css'; // Reusing the same layout styles
-import { LayoutDashboard, FileSpreadsheet, Clock, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, FileSpreadsheet, Clock, BarChart2, Menu, X } from 'lucide-react';
 
 const DistributorLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -21,32 +24,50 @@ const DistributorLayout = () => {
 
   return (
     <div className="admin-layout">
+      {/* Mobile Sidebar Overlay */}
+      <div
+        className={`sidebar-overlay ${isSidebarOpen ? 'open' : ''}`}
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          {/* <div className="logo-icon">M</div> */}
-          <h2>Distributor Portal</h2>
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <img src="/logo.png" alt="Anand DMS" style={{ height: '60px', objectFit: 'contain' }} />
+          {isSidebarOpen && (
+            <button className="menu-toggle" onClick={() => setIsSidebarOpen(false)}>
+              <X size={24} color="#fff" />
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">
           {menuItems.map(item => (
-            <Link 
-              key={item.path} 
-              to={item.path} 
+            <Link
+              key={item.path}
+              to={item.path}
               className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
               style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+              onClick={() => setIsSidebarOpen(false)}
             >
               {item.icon}
-              <span>{item.name}</span>
+              <span className="nav-label">{item.name}</span>
             </Link>
           ))}
         </nav>
-
       </aside>
 
       {/* Main Content */}
       <main className="main-content">
         <header className="top-header">
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button className="menu-toggle" onClick={() => {
+              if (window.innerWidth <= 768) setIsSidebarOpen(true);
+              else setIsCollapsed(!isCollapsed);
+            }}>
+              <Menu size={24} />
+            </button>
+          </div>
           <div className="user-profile" style={{ display: 'flex', alignItems: 'center' }}>
             <span className="user-name">{JSON.parse(localStorage.getItem('dms_user') || '{}').firm_name || 'Distributor'}</span>
             <button className="logout-header-btn" onClick={handleLogout}>
@@ -54,7 +75,7 @@ const DistributorLayout = () => {
             </button>
           </div>
         </header>
-        
+
         <div className="content-wrapper">
           <Outlet />
         </div>

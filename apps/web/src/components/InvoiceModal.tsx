@@ -42,7 +42,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
         maxHeight: '90vh', overflowY: 'auto', position: 'relative',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
       }} className="printable-invoice">
-        
+
         {/* Header Actions (Hidden when printing) */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px', borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -67,7 +67,8 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Invoice #: <strong style={{ color: '#0f172a' }}>{data.invoice.invoice_number}</strong></p>
                 <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '14px' }}>Date: <strong style={{ color: '#0f172a' }}>{new Date(data.invoice.created_at).toLocaleDateString()}</strong></p>
               </div>
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <img src="/logo.png" alt="Anand DMS" style={{ height: '80px', objectFit: 'contain', marginBottom: '8px' }} />
                 <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>Anand Enterprises</h2>
                 <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Super Distributor</p>
               </div>

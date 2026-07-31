@@ -38,42 +38,42 @@ const Login = () => {
   return (
     <div className="login-page">
       <div className="login-container">
-        <div className="login-header">
-        <h1>DMS Portal</h1>
-        <p>Sign in to your distribution account</p>
-      </div>
-
-      {error && <div className="error-message">{error}</div>}
-
-      <form onSubmit={handleLogin}>
-        <div className="input-group">
-          <label>Phone Number</label>
-          <input 
-            type="text" 
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Enter your phone number"
-            required
-            disabled={isLoading}
-          />
+        <div className="login-header" style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <img src="/logo.png" alt="Anand DMS" style={{ height: '90px', objectFit: 'contain', marginBottom: '12px' }} />
+          <p>Sign in to your distribution account</p>
         </div>
 
-        <div className="input-group">
-          <label>Password</label>
-          <input 
-            type="password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter your password"
-            required
-            disabled={isLoading}
-          />
-        </div>
+        {error && <div className="error-message">{error}</div>}
 
-        <button type="submit" className="login-btn" disabled={isLoading}>
-          {isLoading ? 'Signing in...' : 'Sign In'}
-        </button>
-      </form>
+        <form onSubmit={handleLogin}>
+          <div className="input-group">
+            <label>Phone Number</label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Enter your phone number"
+              required
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+              disabled={isLoading}
+            />
+          </div>
+
+          <button type="submit" className="login-btn" disabled={isLoading}>
+            {isLoading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
       </div>
     </div>
   );

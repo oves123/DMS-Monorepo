@@ -97,6 +97,15 @@ exports.addProduct = async (req, res) => {
         request.input('hsn_code', sql.VarChar, hsn_code);
         request.input('gst_percent', sql.Decimal(5,2), gst_percent || 0);
 
+        // Check for duplicate product name
+        const checkReq = new sql.Request(transaction);
+        checkReq.input('check_name', sql.VarChar, name);
+        const checkRes = await checkReq.query(`SELECT product_id FROM Products WHERE name = @check_name`);
+        if (checkRes.recordset.length > 0) {
+            await transaction.rollback();
+            return res.status(400).json({ message: 'A product with this name already exists.' });
+        }
+
         // Insert Product
         const productResult = await request.query(`
             INSERT INTO Products (category_id, name, hsn_code, gst_percent)
@@ -163,11 +172,18 @@ exports.updateProductVariant = async (req, res) => {
         }
         const productId = prodLookup.recordset[0].product_id;
 
-        // 3. Update Product details
+        // 3. Check for duplicate name and Update Product details
         request.input('prod_id', sql.Int, productId);
         request.input('cat_id', sql.Int, categoryId);
         request.input('prod_name', sql.VarChar, name);
         request.input('hsn', sql.VarChar, hsn_code || null);
+        
+        const checkNameRes = await request.query(`SELECT product_id FROM Products WHERE name = @prod_name AND product_id != @prod_id`);
+        if (checkNameRes.recordset.length > 0) {
+            await transaction.rollback();
+            return res.status(400).json({ message: 'Another product with this name already exists.' });
+        }
+
         await request.query(`
             UPDATE Products 
             SET category_id = @cat_id, name = @prod_name, hsn_code = @hsn
@@ -224,5 +240,129 @@ exports.deleteProductVariant = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// POST /api/products/bulk
+exports.bulkUploadProducts = async (req, res) => {
+    try {
+        const rows = req.body;
+        if (!Array.isArray(rows) || rows.length === 0) {
+            return res.status(400).json({ message: 'Invalid data format. Expected an array of products.' });
+        }
+
+        let successCount = 0;
+        let skipCount = 0;
+
+        // Start a transaction for bulk operation safety
+        const transaction = new sql.Transaction();
+        await transaction.begin();
+
+        try {
+            for (const row of rows) {
+                // Handle different possible key names from CSV
+                const category_name = row['Category'] || row['category_name'] || null;
+                const product_name = row['Product Name'] || row['product_name'] || row['name'];
+                const hsn_code = row['HSN Code'] || row['hsn_code'] || null;
+                const pack_size = row['Pack Size'] || row['pack_size'];
+                const distributor_rate = row['Distributor Rate'] || row['distributor_rate'];
+                const retailer_rate = row['Retailer Rate'] || row['retailer_rate'];
+                const mrp = row['MRP'] || row['mrp'] || 0;
+                
+                if (!product_name || !pack_size || distributor_rate == null || retailer_rate == null) {
+                    skipCount++;
+                    continue; // Skip invalid rows missing core data
+                }
+
+                // 1. Get or Create Category
+                let categoryId = null;
+                if (category_name) {
+                    const catReq = new sql.Request(transaction);
+                    catReq.input('cat_name', sql.VarChar, category_name);
+                    const catRes = await catReq.query(`SELECT category_id FROM Categories WHERE name = @cat_name`);
+                    if (catRes.recordset.length > 0) {
+                        categoryId = catRes.recordset[0].category_id;
+                    } else {
+                        const newCat = await catReq.query(`INSERT INTO Categories (name) OUTPUT INSERTED.category_id VALUES (@cat_name)`);
+                        categoryId = newCat.recordset[0].category_id;
+                    }
+                }
+
+                // 2. Get or Create Product
+                let productId;
+                const pReq = new sql.Request(transaction);
+                pReq.input('prod_name', sql.VarChar, product_name);
+                const prodRes = await pReq.query(`SELECT product_id FROM Products WHERE name = @prod_name`);
+                
+                if (prodRes.recordset.length > 0) {
+                    productId = prodRes.recordset[0].product_id;
+                } else {
+                    pReq.input('cat_id', sql.Int, categoryId);
+                    pReq.input('hsn', sql.VarChar, hsn_code);
+                    pReq.input('gst', sql.Decimal(5,2), 0);
+                    const newProd = await pReq.query(`
+                        INSERT INTO Products (category_id, name, hsn_code, gst_percent)
+                        OUTPUT INSERTED.product_id
+                        VALUES (@cat_id, @prod_name, @hsn, @gst)
+                    `);
+                    productId = newProd.recordset[0].product_id;
+                }
+
+                // 3. Create Variant
+                const vReq = new sql.Request(transaction);
+                vReq.input('p_id', sql.Int, productId);
+                vReq.input('p_size', sql.VarChar, pack_size);
+                const varCheck = await vReq.query(`SELECT variant_id FROM ProductVariants WHERE product_id = @p_id AND pack_size = @p_size`);
+                
+                if (varCheck.recordset.length === 0) {
+                    vReq.input('d_rate', sql.Decimal(10,2), distributor_rate);
+                    vReq.input('r_rate', sql.Decimal(10,2), retailer_rate);
+                    vReq.input('mrp_val', sql.Decimal(10,2), mrp);
+                    await vReq.query(`
+                        INSERT INTO ProductVariants (product_id, pack_size, distributor_rate, retailer_rate, mrp)
+                        VALUES (@p_id, @p_size, @d_rate, @r_rate, @mrp_val)
+                    `);
+                    successCount++;
+                } else {
+                    skipCount++; // Skip if variant already exists
+                }
+            }
+
+            await transaction.commit();
+            res.status(200).json({ message: 'Bulk upload completed', successCount, skipCount });
+        } catch (innerErr) {
+            console.error("Bulk insert transaction error:", innerErr);
+            await transaction.rollback();
+            res.status(500).json({ message: 'Failed during bulk upload process' });
+        }
+    } catch (err) {
+        console.error("Bulk Upload Error:", err);
+        res.status(500).json({ message: 'Failed to process bulk upload' });
+    }
+};
+
+// POST /api/products/:product_id/variants
+exports.addProductVariant = async (req, res) => {
+    try {
+        const { product_id } = req.params;
+        const { pack_size, distributor_rate, retailer_rate, mrp } = req.body;
+
+        const request = new sql.Request();
+        request.input('product_id', sql.Int, product_id);
+        request.input('pack_size', sql.VarChar, pack_size);
+        request.input('distributor_rate', sql.Decimal(10,2), distributor_rate || 0);
+        request.input('retailer_rate', sql.Decimal(10,2), retailer_rate || 0);
+        request.input('mrp', sql.Decimal(10,2), mrp || 0);
+
+        const result = await request.query(`
+            INSERT INTO ProductVariants (product_id, pack_size, distributor_rate, retailer_rate, mrp)
+            OUTPUT INSERTED.*
+            VALUES (@product_id, @pack_size, @distributor_rate, @retailer_rate, @mrp)
+        `);
+
+        res.status(201).json(result.recordset[0]);
+    } catch (err) {
+        console.error("Add Variant Error:", err);
+        res.status(500).json({ message: 'Failed to add variant' });
     }
 };

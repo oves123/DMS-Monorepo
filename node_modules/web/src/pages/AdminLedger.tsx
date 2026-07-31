@@ -52,9 +52,6 @@ const AdminLedger = () => {
 
   return (
     <div>
-      <div className="page-header">
-        <h2 className="page-title">Ledger &amp; Billing</h2>
-      </div>
 
       {error && <div className="error-message">{error}</div>}
 
