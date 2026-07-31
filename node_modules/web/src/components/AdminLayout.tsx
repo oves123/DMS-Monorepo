@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import { Menu, X, LayoutDashboard, Package, Archive, ShoppingCart, Users, FileSpreadsheet, BarChart2 } from 'lucide-react';
 import '../styles/AdminLayout.css';
 
@@ -15,6 +16,23 @@ const AdminLayout = () => {
     localStorage.removeItem('dms_user');
     navigate('/');
   };
+
+  const [pendingOrders, setPendingOrders] = useState(0);
+
+  useEffect(() => {
+    const fetchPendingOrders = async () => {
+      try {
+        const response = await axios.get('http://localhost:5001/api/dashboard/metrics');
+        setPendingOrders(response.data.pendingOrders || 0);
+      } catch (err) {
+        console.error('Failed to fetch pending orders for badge');
+      }
+    };
+
+    fetchPendingOrders();
+    const interval = setInterval(fetchPendingOrders, 30000); // Check every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
@@ -54,7 +72,22 @@ const AdminLayout = () => {
               onClick={() => setIsSidebarOpen(false)}
             >
               {item.icon}
-              <span className="nav-label">{item.name}</span>
+              <span className="nav-label" style={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
+                {item.name}
+                {item.name === 'Orders' && pendingOrders > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    marginLeft: '8px'
+                  }}>
+                    {pendingOrders}
+                  </span>
+                )}
+              </span>
             </Link>
           ))}
         </nav>

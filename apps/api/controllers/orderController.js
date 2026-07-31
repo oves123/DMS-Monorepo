@@ -45,7 +45,8 @@ exports.getAdminOrders = async (req, res) => {
             });
         });
 
-        res.json(Object.values(ordersMap));
+        const sortedOrders = Object.values(ordersMap).sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+        res.json(sortedOrders);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
@@ -223,7 +224,8 @@ exports.getDistributorOrders = async (req, res) => {
             });
         });
 
-        res.json(Object.values(ordersMap));
+        const sortedOrders = Object.values(ordersMap).sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+        res.json(sortedOrders);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
