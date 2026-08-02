@@ -11,6 +11,11 @@ CREATE TABLE Users (
     address VARCHAR(255),
     phone_number VARCHAR(15) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    owner_name VARCHAR(100) NULL,
+    fssai_number VARCHAR(50) NULL,
+    pan_card VARBINARY(MAX) NULL,
+    aadhar_card VARBINARY(MAX) NULL,
+    photo VARBINARY(MAX) NULL,
     created_at DATETIME DEFAULT GETDATE()
 );
 

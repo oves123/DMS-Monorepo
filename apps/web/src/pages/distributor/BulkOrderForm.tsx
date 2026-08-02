@@ -25,6 +25,16 @@ const BulkOrderForm = () => {
     try {
       const response = await axios.get('http://localhost:5001/api/products');
       const validProducts = response.data.filter((p: any) => p.variants && p.variants.length > 0);
+      
+      // Sort variants numerically by pack size (e.g. 5Rs before 10Rs)
+      validProducts.forEach((p: any) => {
+        p.variants.sort((a: any, b: any) => {
+          const numA = parseInt(a.pack_size) || 0;
+          const numB = parseInt(b.pack_size) || 0;
+          return numA - numB;
+        });
+      });
+
       setCatalog(validProducts);
       
       // Auto-expand all by default

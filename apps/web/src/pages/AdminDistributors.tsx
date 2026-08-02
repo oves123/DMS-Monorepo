@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { Search, Edit, Trash2, Filter, Upload } from 'lucide-react';
+import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge } from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
 
@@ -26,6 +26,11 @@ const AdminDistributors = () => {
   const [address, setAddress] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [fssaiNumber, setFssaiNumber] = useState('');
+  const [panFile, setPanFile] = useState<File | null>(null);
+  const [aadharFile, setAadharFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
   // Edit Modal State
@@ -54,12 +59,20 @@ const AdminDistributors = () => {
     setError('');
 
     try {
-      await axios.post('http://localhost:5001/api/distributors', {
-        firm_name: firmName,
-        gst_number: gstNumber,
-        address: address,
-        phone_number: phoneNumber,
-        password: password
+      const formData = new FormData();
+      formData.append('firm_name', firmName);
+      formData.append('gst_number', gstNumber);
+      formData.append('address', address);
+      formData.append('phone_number', phoneNumber);
+      formData.append('password', password);
+      if (ownerName) formData.append('owner_name', ownerName);
+      if (fssaiNumber) formData.append('fssai_number', fssaiNumber);
+      if (panFile) formData.append('panFile', panFile);
+      if (aadharFile) formData.append('aadharFile', aadharFile);
+      if (photoFile) formData.append('photoFile', photoFile);
+
+      await axios.post('http://localhost:5001/api/distributors', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
       setShowForm(false);
@@ -68,6 +81,11 @@ const AdminDistributors = () => {
       setAddress('');
       setPhoneNumber('');
       setPassword('');
+      setOwnerName('');
+      setFssaiNumber('');
+      setPanFile(null);
+      setAadharFile(null);
+      setPhotoFile(null);
       fetchDistributors();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to add distributor');
@@ -95,11 +113,20 @@ const AdminDistributors = () => {
     e.preventDefault();
     setIsUpdating(true);
     try {
-      await axios.put(`http://localhost:5001/api/distributors/${editingDist.user_id}`, {
-        firm_name: editForm.firm_name,
-        gst_number: editForm.gst_number,
-        address: editForm.address,
-        phone_number: editForm.phone_number
+      const formData = new FormData();
+      formData.append('firm_name', editForm.firm_name);
+      formData.append('gst_number', editForm.gst_number || '');
+      formData.append('address', editForm.address || '');
+      formData.append('phone_number', editForm.phone_number);
+      formData.append('owner_name', editForm.owner_name || '');
+      formData.append('fssai_number', editForm.fssai_number || '');
+      
+      if (editForm.panFile) formData.append('panFile', editForm.panFile);
+      if (editForm.aadharFile) formData.append('aadharFile', editForm.aadharFile);
+      if (editForm.photoFile) formData.append('photoFile', editForm.photoFile);
+
+      await axios.put(`http://localhost:5001/api/distributors/${editingDist.user_id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       setEditingDist(null);
       fetchDistributors();
@@ -220,6 +247,26 @@ const AdminDistributors = () => {
               <label>Password *</label>
               <input type="text" required value={password} onChange={e => setPassword(e.target.value)} />
             </div>
+            <div className="input-group">
+              <label>Owner Name (Optional)</label>
+              <input type="text" value={ownerName} onChange={e => setOwnerName(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>FSSAI Number (Optional)</label>
+              <input type="text" value={fssaiNumber} onChange={e => setFssaiNumber(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>PAN Card Upload (Optional)</label>
+              <input type="file" accept="image/*,.pdf" onChange={e => setPanFile(e.target.files ? e.target.files[0] : null)} />
+            </div>
+            <div className="input-group">
+              <label>Aadhar Upload (Optional)</label>
+              <input type="file" accept="image/*,.pdf" onChange={e => setAadharFile(e.target.files ? e.target.files[0] : null)} />
+            </div>
+            <div className="input-group">
+              <label>Photo Upload (Optional)</label>
+              <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files ? e.target.files[0] : null)} />
+            </div>
             <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
               <button type="submit" className="primary-btn" disabled={formLoading}>
                 {formLoading ? 'Creating...' : 'Create Account'}
@@ -298,10 +345,13 @@ const AdminDistributors = () => {
                 <thead>
                   <tr>
                     <th>Firm Name</th>
+                    <th>Owner Name</th>
                     <th>Phone Number</th>
                     <th>GST Number</th>
+                    <th>FSSAI Number</th>
                     <th>Address</th>
-                    <th>Registration Date</th>
+                    <th>Files</th>
+                    <th>Reg. Date</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -310,9 +360,31 @@ const AdminDistributors = () => {
                     currentItems.map((d) => (
                       <tr key={d.user_id}>
                         <td style={{ fontWeight: 500 }}>{d.firm_name}</td>
+                        <td>{d.owner_name || '-'}</td>
                         <td>{d.phone_number}</td>
                         <td>{d.gst_number || '-'}</td>
+                        <td>{d.fssai_number || '-'}</td>
                         <td>{d.address || '-'}</td>
+                        <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {d.has_pan === 1 && (
+                            <a href={`http://localhost:5001/api/distributors/${d.user_id}/file/pan`} target="_blank" rel="noopener noreferrer" title="View PAN">
+                              <FileText size={16} color="#3b82f6" />
+                            </a>
+                          )}
+                          {d.has_aadhar === 1 && (
+                            <a href={`http://localhost:5001/api/distributors/${d.user_id}/file/aadhar`} target="_blank" rel="noopener noreferrer" title="View Aadhar">
+                              <FileBadge size={16} color="#10b981" />
+                            </a>
+                          )}
+                          {d.has_photo === 1 && (
+                            <a href={`http://localhost:5001/api/distributors/${d.user_id}/file/photo`} target="_blank" rel="noopener noreferrer" title="View Photo">
+                              <Image size={16} color="#8b5cf6" />
+                            </a>
+                          )}
+                          {d.has_pan !== 1 && d.has_aadhar !== 1 && d.has_photo !== 1 && (
+                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>None</span>
+                          )}
+                        </td>
                         <td>{new Date(d.created_at).toLocaleDateString()}</td>
                         <td style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button 
@@ -433,9 +505,29 @@ const AdminDistributors = () => {
                   <label>GST Number</label>
                   <input type="text" value={editForm.gst_number || ''} onChange={(e) => setEditForm({...editForm, gst_number: e.target.value})} />
                 </div>
+                <div className="input-group">
+                  <label>Owner Name</label>
+                  <input type="text" value={editForm.owner_name || ''} onChange={(e) => setEditForm({...editForm, owner_name: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>FSSAI Number</label>
+                  <input type="text" value={editForm.fssai_number || ''} onChange={(e) => setEditForm({...editForm, fssai_number: e.target.value})} />
+                </div>
                 <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                   <label>Address</label>
                   <input type="text" value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>Update PAN Card</label>
+                  <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, panFile: e.target.files ? e.target.files[0] : null})} />
+                </div>
+                <div className="input-group">
+                  <label>Update Aadhar</label>
+                  <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, aadharFile: e.target.files ? e.target.files[0] : null})} />
+                </div>
+                <div className="input-group">
+                  <label>Update Photo</label>
+                  <input type="file" accept="image/*" onChange={e => setEditForm({...editForm, photoFile: e.target.files ? e.target.files[0] : null})} />
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
