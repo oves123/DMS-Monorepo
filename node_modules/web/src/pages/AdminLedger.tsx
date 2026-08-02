@@ -47,8 +47,9 @@ const AdminLedger = () => {
   useEffect(() => { setCurrentPage(1); }, [searchQuery, dateFilter]);
 
   // Summary totals from filtered invoices
-  const totalRevenue = filteredInvoices.reduce((sum, inv) => sum + (inv.grand_total || 0), 0);
+  const totalSubtotal = filteredInvoices.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
   const totalGst = filteredInvoices.reduce((sum, inv) => sum + (inv.cgst_amount || 0) + (inv.sgst_amount || 0), 0);
+  const totalRevenue = filteredInvoices.reduce((sum, inv) => sum + (inv.grand_total || 0), 0);
 
   return (
     <div>
@@ -63,12 +64,16 @@ const AdminLedger = () => {
             <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-main)' }}>{filteredInvoices.length}</div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Revenue</div>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#059669' }}>₹{totalRevenue.toFixed(2)}</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Without GST (Subtotal)</div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#4f46e5' }}>₹{totalSubtotal.toFixed(2)}</div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total GST Collected</div>
             <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2563eb' }}>₹{totalGst.toFixed(2)}</div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Grand Total</div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#059669' }}>₹{totalRevenue.toFixed(2)}</div>
           </div>
         </div>
       )}
