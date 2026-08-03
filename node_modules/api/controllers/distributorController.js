@@ -6,15 +6,32 @@ exports.getDistributors = async (req, res) => {
     try {
         const result = await new sql.Request().query(`
             SELECT user_id, firm_name, gst_number, address, phone_number, created_at,
-                   owner_name, fssai_number,
+                   owner_name, fssai_number, wallet_balance,
                    CASE WHEN pan_card IS NOT NULL THEN 1 ELSE 0 END as has_pan,
                    CASE WHEN aadhar_card IS NOT NULL THEN 1 ELSE 0 END as has_aadhar,
                    CASE WHEN photo IS NOT NULL THEN 1 ELSE 0 END as has_photo
             FROM Users 
-            WHERE role = 'DISTRIBUTOR'
+            WHERE role = 'DISTRIBUTOR' OR role = 'ND'
             ORDER BY created_at DESC
         `);
         res.json(result.recordset);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// GET /api/distributors/:id/wallet
+exports.getWalletBalance = async (req, res) => {
+    try {
+        const user_id = req.params.id;
+        const request = new sql.Request();
+        request.input('user_id', sql.Int, user_id);
+        const result = await request.query(`SELECT wallet_balance FROM Users WHERE user_id = @user_id`);
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json({ wallet_balance: result.recordset[0].wallet_balance });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });

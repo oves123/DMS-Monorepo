@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { Menu, X, LayoutDashboard, Package, Archive, ShoppingCart, Users, FileSpreadsheet, BarChart2 } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Package, Archive, ShoppingCart, Users, FileText, BarChart2, AlertTriangle } from 'lucide-react';
 import '../styles/AdminLayout.css';
 
 const AdminLayout = () => {
@@ -18,19 +18,21 @@ const AdminLayout = () => {
   };
 
   const [pendingOrders, setPendingOrders] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
 
   useEffect(() => {
-    const fetchPendingOrders = async () => {
+    const fetchMetrics = async () => {
       try {
         const response = await axios.get('http://localhost:5001/api/dashboard/metrics');
         setPendingOrders(response.data.pendingOrders || 0);
+        setLowStockCount(response.data.lowStockCount || 0);
       } catch (err) {
         console.error('Failed to fetch pending orders for badge');
       }
     };
 
-    fetchPendingOrders();
-    const interval = setInterval(fetchPendingOrders, 30000); // Check every 30s
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 30000); // Check every 30s
     return () => clearInterval(interval);
   }, []);
 
@@ -40,8 +42,10 @@ const AdminLayout = () => {
     { name: 'Inventory', path: '/admin/inventory', icon: <Archive size={20} /> },
     { name: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { name: 'Distributors', path: '/admin/distributors', icon: <Users size={20} /> },
-    { name: 'Ledger & Billing', path: '/admin/ledger', icon: <FileSpreadsheet size={20} /> },
+    { name: 'Claims & Credits', path: '/admin/claims', icon: <AlertTriangle size={20} /> },
+    { name: 'Ledger & Billing', path: '/admin/ledger', icon: <FileText size={20} /> },
     { name: 'Reports', path: '/admin/reports', icon: <BarChart2 size={20} /> },
+    { name: 'Settings', path: '/admin/settings', icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> },
   ];
 
   return (
@@ -85,6 +89,19 @@ const AdminLayout = () => {
                     marginLeft: '8px'
                   }}>
                     {pendingOrders}
+                  </span>
+                )}
+                {item.name === 'Inventory' && lowStockCount > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    marginLeft: '8px'
+                  }}>
+                    {lowStockCount}
                   </span>
                 )}
               </span>

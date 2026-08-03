@@ -2,11 +2,23 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { Package, FileText, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import InvoiceModal from '../../components/InvoiceModal';
+import { useToast } from '../../components/Toast';
 
 const DistributorOrders = () => {
+  const { showToast } = useToast();
   const [orders, setOrders] = useState<any[]>([]);
+  const [filedClaims, setFiledClaims] = useState<any[]>([]);
+  const [claimWindowDays, setClaimWindowDays] = useState(7);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  
+  // Claim State
+  const [claimItem, setClaimItem] = useState<any>(null);
+  const [claimQty, setClaimQty] = useState(1);
+  const [claimReason, setClaimReason] = useState('');
+  const [claimImage, setClaimImage] = useState<File | null>(null);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
+
   const user = JSON.parse(localStorage.getItem('dms_user') || '{}');
 
   // Filters and Pagination
@@ -17,7 +29,20 @@ const DistributorOrders = () => {
 
   useEffect(() => {
     fetchOrders();
+    fetchClaims();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const response = await axios.get('http://localhost:5001/api/settings/company');
+      if (response.data && response.data.claim_window_days) {
+        setClaimWindowDays(response.data.claim_window_days);
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings');
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -30,12 +55,54 @@ const DistributorOrders = () => {
     }
   };
 
+  const fetchClaims = async () => {
+    if (!user.user_id) return;
+    try {
+      const response = await axios.get(`http://localhost:5001/api/claims/distributor/${user.user_id}`);
+      setFiledClaims(response.data);
+    } catch (err) {
+      console.error('Failed to fetch claims');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch(status) {
       case 'PENDING': return { bg: '#fef3c7', text: '#d97706' };
       case 'EXECUTED': return { bg: '#d1fae5', text: '#059669' };
       case 'REJECTED': return { bg: '#fee2e2', text: '#dc2626' };
       default: return { bg: '#f1f5f9', text: '#475569' };
+    }
+  };
+
+  const submitClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!claimItem) return;
+    
+    setSubmittingClaim(true);
+    try {
+      const formData = new FormData();
+      formData.append('order_id', claimItem.order_id);
+      formData.append('variant_id', claimItem.variant_id);
+      formData.append('quantity', claimQty.toString());
+      formData.append('reason', claimReason);
+      formData.append('distributor_id', user.user_id);
+      if (claimImage) {
+        formData.append('image', claimImage);
+      }
+
+      await axios.post('http://localhost:5001/api/claims/submit', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showToast('Claim submitted successfully!', 'success');
+      setClaimItem(null);
+      setClaimQty(1);
+      setClaimReason('');
+      setClaimImage(null);
+      fetchClaims(); // Refresh claims to update UI
+    } catch (err) {
+      showToast('Failed to submit claim', 'error');
+    } finally {
+      setSubmittingClaim(false);
     }
   };
 
@@ -156,43 +223,94 @@ const DistributorOrders = () => {
                   </div>
                   
                   <div style={{ padding: '0 20px', overflowX: 'auto' }}>
-                    <table className="data-table" style={{ border: 'none', marginBottom: 0, minWidth: '500px' }}>
-                      <thead>
-                        <tr>
-                          <th>Item</th>
-                          <th>Pack Size</th>
-                          <th>Req Qty</th>
-                          {order.status === 'EXECUTED' && <th>Exec Qty</th>}
-                          <th>Price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {order.items.map((item: any) => (
-                          <tr key={item.order_item_id}>
-                            <td style={{ fontWeight: 500 }}>{item.product_name}</td>
-                            <td>{item.pack_size}</td>
-                            <td>{item.requested_qty}</td>
-                            {order.status === 'EXECUTED' && (
-                              <td style={{ color: '#10b981', fontWeight: 'bold' }}>{item.executed_qty}</td>
-                            )}
-                            <td>₹{item.price_at_order}</td>
+                    <div className="table-responsive">
+                      <table className="data-table" style={{ border: 'none', marginBottom: 0, minWidth: '500px' }}>
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th>Pack Size</th>
+                            <th>Req Qty</th>
+                            {order.status === 'EXECUTED' && <th>Exec Qty</th>}
+                            <th>Price</th>
+                            {order.status === 'EXECUTED' && <th>Action</th>}
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr style={{ background: '#f8fafc', borderTop: '2px solid var(--border-color)' }}>
-                          <td colSpan={order.status === 'EXECUTED' ? 3 : 2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#475569', padding: '12px' }}>
-                            Order Summary:
-                          </td>
-                          <td style={{ fontWeight: 'bold', color: '#0f172a', padding: '12px' }}>
-                            {totalBoxes}
-                          </td>
-                          <td style={{ fontWeight: 'bold', color: '#10b981', fontSize: '15px', padding: '12px' }}>
-                            ₹{totalAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {order.items.map((item: any) => (
+                            <tr key={item.order_item_id}>
+                              <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                              <td>{item.pack_size}</td>
+                              <td>{item.requested_qty}</td>
+                              {order.status === 'EXECUTED' && (
+                                <td style={{ color: '#10b981', fontWeight: 'bold' }}>{item.executed_qty}</td>
+                              )}
+                              <td>₹{item.price_at_order}</td>
+                              {order.status === 'EXECUTED' && (
+                                <td>
+                                  {(() => {
+                                    // Check if a claim is already filed
+                                    const existingClaim = filedClaims.find(c => c.order_id === order.order_id && c.variant_id === item.variant_id);
+                                    if (existingClaim) {
+                                      return (
+                                        <span style={{
+                                          padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                                          background: existingClaim.status === 'PENDING' ? '#fef3c7' : (existingClaim.status === 'APPROVED' ? '#d1fae5' : '#fee2e2'),
+                                          color: existingClaim.status === 'PENDING' ? '#d97706' : (existingClaim.status === 'APPROVED' ? '#059669' : '#b91c1c')
+                                        }}>
+                                          Claim: {existingClaim.status}
+                                        </span>
+                                      );
+                                    }
+                                    
+                                    // Check if the claim window has expired
+                                    let isExpired = false;
+                                    if (order.execution_date) {
+                                      const execDate = new Date(order.execution_date);
+                                      const now = new Date();
+                                      const diffTime = Math.abs(now.getTime() - execDate.getTime());
+                                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                      if (diffDays > claimWindowDays) {
+                                        isExpired = true;
+                                      }
+                                    }
+
+                                    if (isExpired) {
+                                      return (
+                                        <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}>
+                                          Expired
+                                        </span>
+                                      );
+                                    }
+
+                                    return (
+                                      <button 
+                                        onClick={() => setClaimItem({ ...item, order_id: order.order_id })}
+                                        style={{ padding: '4px 8px', fontSize: '11px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}
+                                      >
+                                        File Claim
+                                      </button>
+                                    );
+                                  })()}
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{ background: '#f8fafc', borderTop: '2px solid var(--border-color)' }}>
+                            <td colSpan={order.status === 'EXECUTED' ? 3 : 2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#475569', padding: '12px' }}>
+                              Order Summary:
+                            </td>
+                            <td style={{ fontWeight: 'bold', color: '#0f172a', padding: '12px' }}>
+                              {totalBoxes}
+                            </td>
+                            <td style={{ fontWeight: 'bold', color: '#10b981', fontSize: '15px', padding: '12px' }}>
+                              ₹{totalAmount.toFixed(2)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
                 </div>
               );
@@ -226,6 +344,65 @@ const DistributorOrders = () => {
           </div>
         )}
       </div>
+
+      {/* Claim Modal */}
+      {claimItem && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px' }}>File Defect Claim</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#64748b' }}>
+              Product: <strong>{claimItem.product_name}</strong>
+            </p>
+            
+            <form onSubmit={submitClaim}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label>Defect Quantity (Max {claimItem.executed_qty})</label>
+                <input 
+                  type="number" 
+                  min="1" 
+                  max={claimItem.executed_qty} 
+                  required
+                  value={claimQty}
+                  onChange={e => setClaimQty(parseInt(e.target.value))}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label>Reason / Description</label>
+                <textarea 
+                  required
+                  placeholder="E.g., Box damaged during transit, expired product..."
+                  value={claimReason}
+                  onChange={e => setClaimReason(e.target.value)}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', minHeight: '80px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label>Upload Photo (Optional)</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={e => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setClaimImage(e.target.files[0]);
+                    }
+                  }}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button type="button" className="secondary-btn" onClick={() => setClaimItem(null)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={submittingClaim}>
+                  {submittingClaim ? 'Submitting...' : 'Submit Claim'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {selectedOrderId && (
         <InvoiceModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />

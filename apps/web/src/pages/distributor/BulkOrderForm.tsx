@@ -17,6 +17,9 @@ const BulkOrderForm = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [applyWallet, setApplyWallet] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const user = JSON.parse(localStorage.getItem('dms_user') || '{}');
 
   // Derive preview items from orderData
   const previewItems = useMemo(() => {
@@ -38,6 +41,11 @@ const BulkOrderForm = () => {
 
   useEffect(() => {
     fetchCatalog();
+    if (user.user_id) {
+      axios.get(`http://localhost:5001/api/distributors/${user.user_id}/wallet`)
+        .then(res => setWalletBalance(res.data.wallet_balance || 0))
+        .catch(err => console.error('Failed to fetch wallet'));
+    }
   }, []);
 
   const fetchCatalog = async () => {
@@ -107,7 +115,6 @@ const BulkOrderForm = () => {
 
     setSubmitting(true);
     try {
-      const user = JSON.parse(localStorage.getItem('dms_user') || '{}');
       if (!user.user_id) throw new Error("Not logged in");
 
       const items: { variant_id: number, requested_qty: number, price_at_order: number }[] = [];
@@ -127,7 +134,8 @@ const BulkOrderForm = () => {
 
       await axios.post('http://localhost:5001/api/orders', {
         distributor_id: user.user_id,
-        items
+        items,
+        apply_wallet: applyWallet ? 1 : 0
       });
 
       showToast('Order placed successfully!', 'success');
@@ -440,7 +448,22 @@ const BulkOrderForm = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {walletBalance > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ecfdf5', padding: '8px 16px', borderRadius: '8px', border: '1px solid #10b981' }}>
+                    <input 
+                      type="checkbox" 
+                      id="applyWallet"
+                      checked={applyWallet}
+                      onChange={e => setApplyWallet(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#10b981' }}
+                    />
+                    <label htmlFor="applyWallet" style={{ cursor: 'pointer', fontSize: '14px', color: '#065f46', fontWeight: 600 }}>
+                      Apply Wallet Balance (₹{parseFloat(walletBalance.toString()).toFixed(2)})
+                    </label>
+                  </div>
+                )}
+                
                 <button 
                   onClick={() => setShowPreviewModal(false)}
                   style={{ padding: '12px 24px', background: '#fff', border: '1px solid #cbd5e1', color: '#475569', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}

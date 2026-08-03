@@ -1,18 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, PackagePlus, Check, X, Filter } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 
 const AdminInventory = () => {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [updateVariantId, setUpdateVariantId] = useState<number | null>(null);
-  const [addQty, setAddQty] = useState('');
+  
+  // Inline Editing State
+  const [editingCell, setEditingCell] = useState<{ variantId: number, field: 'stock' | 'threshold' } | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   // Pagination, Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
+  const [showCritical, setShowCritical] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -31,21 +34,24 @@ const AdminInventory = () => {
     }
   };
 
-  const handleUpdateStock = async (e: React.FormEvent, variantId: number) => {
-    e.preventDefault();
-    if (!addQty || isNaN(Number(addQty))) return;
+  const handleInlineSave = async (variantId: number, field: 'stock' | 'threshold') => {
+    if (editValue === '') {
+      setEditingCell(null);
+      return;
+    }
 
     try {
-      await axios.post('http://localhost:5001/api/inventory/update', {
-        variant_id: variantId,
-        added_qty: parseInt(addQty)
-      });
+      const payload: any = {};
+      if (field === 'stock') payload.current_stock = editValue;
+      if (field === 'threshold') payload.low_stock_threshold = editValue;
+
+      await axios.put(`http://localhost:5001/api/inventory/inline/${variantId}`, payload);
       
-      setUpdateVariantId(null);
-      setAddQty('');
-      fetchInventory();
+      setEditingCell(null);
+      setEditValue('');
+      fetchInventory(); // Refresh to get updated data
     } catch (err) {
-      setError('Failed to update stock');
+      setError('Failed to update value');
     }
   };
 
@@ -56,16 +62,30 @@ const AdminInventory = () => {
   }, [inventory]);
 
   // Filter and Pagination Logic
-  const filteredInventory = useMemo(() => inventory.filter((item: any) => {
-    const matchesSearch = item.product_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (item.category_name && item.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
-    const matchesStock = 
-      stockFilter === 'All' ? true :
-      stockFilter === 'Low Stock' ? item.current_stock > 0 && item.current_stock < 100 :
-      stockFilter === 'Out of Stock' ? item.current_stock === 0 : true;
-    return matchesSearch && matchesCategory && matchesStock;
-  }), [inventory, searchQuery, selectedCategory, stockFilter]);
+  const filteredInventory = useMemo(() => {
+    let result = inventory.filter((item: any) => {
+      const matchesSearch = item.product_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (item.category_name && item.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
+      const matchesStock = 
+        stockFilter === 'All' ? true :
+        stockFilter === 'Low Stock' ? item.current_stock <= item.low_stock_threshold :
+        stockFilter === 'Out of Stock' ? item.current_stock === 0 : true;
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+
+    if (showCritical) {
+      result.sort((a, b) => {
+        const aCritical = a.current_stock <= a.low_stock_threshold;
+        const bCritical = b.current_stock <= b.low_stock_threshold;
+        if (aCritical && !bCritical) return -1;
+        if (!aCritical && bCritical) return 1;
+        return a.current_stock - b.current_stock;
+      });
+    }
+
+    return result;
+  }, [inventory, searchQuery, selectedCategory, stockFilter, showCritical]);
 
   const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -83,7 +103,7 @@ const AdminInventory = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, stockFilter]);
+  }, [searchQuery, selectedCategory, stockFilter, showCritical]);
 
 
   return (
@@ -156,9 +176,9 @@ const AdminInventory = () => {
                 </select>
 
                 {/* Clear Filters */}
-                {(searchQuery || selectedCategory !== 'All' || stockFilter !== 'All') && (
+                {(searchQuery || selectedCategory !== 'All' || stockFilter !== 'All' || showCritical) && (
                   <button
-                    onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setStockFilter('All'); }}
+                    onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setStockFilter('All'); setShowCritical(false); }}
                     style={{ padding: '6px 12px', fontSize: '13px', background: '#fef3c7', color: '#d97706', border: '1px solid #fde68a', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}
                   >
                     ✕ Clear Filters
@@ -166,9 +186,20 @@ const AdminInventory = () => {
                 )}
               </div>
 
-              <span style={{ color: 'var(--text-muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                Showing {filteredInventory.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredInventory.length)} of {filteredInventory.length} entries
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer', fontWeight: 500, color: '#dc2626' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showCritical} 
+                    onChange={(e) => setShowCritical(e.target.checked)}
+                    style={{ cursor: 'pointer', accentColor: '#dc2626' }}
+                  />
+                  Show Critical Stock First
+                </label>
+                <span style={{ color: 'var(--text-muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>
+                  Showing {filteredInventory.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredInventory.length)} of {filteredInventory.length} entries
+                </span>
+              </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
@@ -178,66 +209,101 @@ const AdminInventory = () => {
                     <th>Product</th>
                     <th>Pack Size</th>
                     <th>Current Stock</th>
-                    <th>Action</th>
+                    <th>Alert Limit</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentItems.length > 0 ? (
-                    currentItems.map((item) => (
+                    currentItems.map((item) => {
+                      const isLowStock = item.current_stock <= item.low_stock_threshold;
+                      
+                      return (
                       <tr key={item.variant_id}>
                         <td style={{ fontWeight: 500 }}>
                           {item.product_name} 
                           <span style={{ color: '#6b7280', fontSize: '12px', display: 'block' }}>{item.category_name}</span>
                         </td>
                         <td>{item.pack_size}</td>
-                        <td>
-                          <span style={{ 
-                            fontWeight: 'bold', 
-                            color: item.current_stock > 0 ? '#10b981' : '#ef4444',
-                            fontSize: '16px'
-                          }}>
-                            {item.current_stock}
-                          </span>
-                        </td>
-                        <td>
-                          {updateVariantId === item.variant_id ? (
-                            <form onSubmit={(e) => handleUpdateStock(e, item.variant_id)} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <input 
-                                type="number" 
-                                placeholder="+ Qty" 
-                                value={addQty}
-                                onChange={(e) => setAddQty(e.target.value)}
-                                style={{ width: '70px', padding: '6px 8px', border: '1px solid var(--primary)', borderRadius: '6px', outline: 'none' }}
-                                required
-                                autoFocus
-                              />
-                              <button type="submit" title="Save" style={{ background: '#10b981', color: 'white', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Check size={16} />
-                              </button>
-                              <button type="button" title="Cancel" onClick={() => setUpdateVariantId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <X size={16} />
-                              </button>
-                            </form>
-                          ) : (
-                            <button 
-                              onClick={() => { setUpdateVariantId(item.variant_id); setAddQty(''); }}
-                              style={{ 
-                                display: 'flex', alignItems: 'center', gap: '6px',
-                                background: '#eff6ff', color: 'var(--primary)', 
-                                border: 'none', padding: '8px 12px', borderRadius: '6px', 
-                                fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-                                transition: 'background 0.2s'
+                        <td 
+                          onClick={() => {
+                            setEditingCell({ variantId: item.variant_id, field: 'stock' });
+                            setEditValue(item.current_stock.toString());
+                          }}
+                          style={{ cursor: 'pointer', position: 'relative' }}
+                          title="Click to quickly edit stock"
+                        >
+                          {editingCell?.variantId === item.variant_id && editingCell.field === 'stock' ? (
+                            <input 
+                              type="number"
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => handleInlineSave(item.variant_id, 'stock')}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleInlineSave(item.variant_id, 'stock');
+                                if (e.key === 'Escape') setEditingCell(null);
                               }}
-                              onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
-                              onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
+                              style={{ width: '80px', padding: '6px', border: '2px solid var(--primary)', borderRadius: '4px', outline: 'none' }}
+                            />
+                          ) : (
+                            <span style={{ 
+                              fontWeight: 'bold', 
+                              color: isLowStock ? '#ef4444' : '#10b981',
+                              fontSize: '16px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px',
+                              borderRadius: '4px',
+                              transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
-                              <PackagePlus size={16} />
-                              Update Stock
-                            </button>
+                              {item.current_stock}
+                              {isLowStock && <span style={{ fontSize: '18px' }}>⚠️</span>}
+                            </span>
+                          )}
+                        </td>
+                        <td 
+                          onClick={() => {
+                            setEditingCell({ variantId: item.variant_id, field: 'threshold' });
+                            setEditValue(item.low_stock_threshold?.toString() || '50');
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to quickly edit limit"
+                        >
+                          {editingCell?.variantId === item.variant_id && editingCell.field === 'threshold' ? (
+                            <input 
+                              type="number"
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={() => handleInlineSave(item.variant_id, 'threshold')}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleInlineSave(item.variant_id, 'threshold');
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                              style={{ width: '80px', padding: '6px', border: '2px solid #f59e0b', borderRadius: '4px', outline: 'none' }}
+                            />
+                          ) : (
+                            <span style={{ 
+                              color: '#64748b',
+                              fontSize: '15px',
+                              padding: '6px',
+                              borderRadius: '4px',
+                              transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              {item.low_stock_threshold || 50}
+                            </span>
                           )}
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>

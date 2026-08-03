@@ -9,6 +9,7 @@ interface InvoiceModalProps {
 
 const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
   const [data, setData] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -20,6 +21,13 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
     try {
       const response = await axios.get(`http://localhost:5001/api/ledger/invoice/${orderId}`);
       setData(response.data);
+      
+      try {
+        const settingsRes = await axios.get('http://localhost:5001/api/settings/company');
+        setSettings(settingsRes.data);
+      } catch (e) {
+        console.error('Failed to fetch company settings');
+      }
     } catch (err) {
       setError('Invoice not generated yet or failed to fetch');
     } finally {
@@ -118,14 +126,65 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                   <span style={{ color: '#475569' }}>SGST (9%)</span>
                   <span>₹{data.invoice.sgst_amount.toFixed(2)}</span>
                 </div>
+                {data.invoice.extra_discount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <span style={{ color: '#475569' }}>Discount {data.invoice.discount_reason ? `(${data.invoice.discount_reason})` : ''}</span>
+                    <span style={{ color: '#ef4444' }}>- ₹{data.invoice.extra_discount.toFixed(2)}</span>
+                  </div>
+                )}
+                {data.invoice.credit_applied > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <span style={{ color: '#475569' }}>Wallet Credit Applied</span>
+                    <span style={{ color: '#ef4444' }}>- ₹{data.invoice.credit_applied.toFixed(2)}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', fontSize: '20px', fontWeight: 'bold' }}>
                   <span>Grand Total</span>
-                  <span style={{ color: '#059669' }}>₹{data.invoice.grand_total.toFixed(2)}</span>
+                  <span style={{ color: '#059669' }}>
+                    ₹{((data.invoice.grand_total || 0) - (data.invoice.extra_discount || 0) - (data.invoice.credit_applied || 0)).toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: '1px solid #f1f5f9', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '2px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1, paddingRight: '20px' }}>
+                  <h3 style={{ fontSize: '15px', color: '#0f172a', marginBottom: '12px' }}>Payment Instructions (Bank Transfer)</h3>
+                  {settings ? (
+                    <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.6' }}>
+                      <p style={{ margin: '0 0 4px' }}><strong>A/C Name:</strong> {settings.account_name}</p>
+                      <p style={{ margin: '0 0 4px' }}><strong>A/C No:</strong> {settings.account_no}</p>
+                      <p style={{ margin: '0 0 4px' }}><strong>Bank:</strong> {settings.bank_name}</p>
+                      <p style={{ margin: '0 0 4px' }}><strong>IFSC:</strong> {settings.ifsc_code}</p>
+                      <p style={{ margin: '0 0 4px' }}><strong>Branch:</strong> {settings.branch}</p>
+                      <p style={{ margin: 0 }}><strong>Email:</strong> {settings.email}</p>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#475569' }}>Bank details not configured.</div>
+                  )}
+                </div>
+                
+                <div style={{ textAlign: 'center', width: '200px' }}>
+                  <h3 style={{ fontSize: '15px', color: '#0f172a', marginBottom: '8px' }}>Scan & Pay (UPI)</h3>
+                  <div style={{ 
+                    border: '1px solid #cbd5e1', padding: '8px', borderRadius: '8px', display: 'inline-block',
+                    background: '#fff'
+                  }}>
+                    <img 
+                      src="http://localhost:5001/api/settings/company/qr" 
+                      alt="UPI QR Code" 
+                      style={{ width: '120px', height: '120px', objectFit: 'contain' }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>
               <p style={{ margin: 0 }}>This is a computer generated invoice.</p>
               <p style={{ margin: '4px 0 0' }}>Thank you for your business!</p>
             </div>

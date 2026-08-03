@@ -9,12 +9,15 @@ import AdminInventory from './pages/AdminInventory';
 import AdminOrders from './pages/AdminOrders';
 import AdminLedger from './pages/AdminLedger';
 import AdminReports from './pages/AdminReports';
+import AdminClaims from './pages/AdminClaims';
+import AdminSettings from './pages/AdminSettings';
 
 import DistributorLayout from './components/DistributorLayout';
 import DistributorDashboard from './pages/distributor/DistributorDashboard';
 import BulkOrderForm from './pages/distributor/BulkOrderForm';
 import DistributorOrders from './pages/distributor/DistributorOrders';
 import DistributorReports from './pages/distributor/DistributorReports';
+import DistributorClaims from './pages/distributor/DistributorClaims';
 
 import { ToastProvider } from './components/Toast';
 
@@ -34,7 +37,9 @@ function App() {
             <Route path="/admin/orders" element={<AdminOrders />} />
             <Route path="/admin/distributors" element={<AdminDistributors />} />
             <Route path="/admin/ledger" element={<AdminLedger />} />
+            <Route path="/admin/claims" element={<AdminClaims />} />
             <Route path="/admin/reports" element={<AdminReports />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
           </Route>
 
           {/* Distributor Routes (Wrapped in Layout) */}
@@ -42,6 +47,7 @@ function App() {
             <Route path="/distributor/dashboard" element={<DistributorDashboard />} />
             <Route path="/distributor/place-order" element={<BulkOrderForm />} />
             <Route path="/distributor/orders" element={<DistributorOrders />} />
+            <Route path="/distributor/claims" element={<DistributorClaims />} />
             <Route path="/distributor/reports" element={<DistributorReports />} />
           </Route>
         </Routes>

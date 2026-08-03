@@ -349,6 +349,7 @@ const AdminDistributors = () => {
                     <th>Phone Number</th>
                     <th>GST Number</th>
                     <th>FSSAI Number</th>
+                    <th>Wallet Balance</th>
                     <th>Address</th>
                     <th>Files</th>
                     <th>Reg. Date</th>
@@ -364,6 +365,7 @@ const AdminDistributors = () => {
                         <td>{d.phone_number}</td>
                         <td>{d.gst_number || '-'}</td>
                         <td>{d.fssai_number || '-'}</td>
+                        <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{d.wallet_balance ? parseFloat(d.wallet_balance).toFixed(2) : '0.00'}</td>
                         <td>{d.address || '-'}</td>
                         <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {d.has_pan === 1 && (
@@ -487,56 +489,71 @@ const AdminDistributors = () => {
       {editingDist && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
+          padding: '20px'
         }}>
-          <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '500px' }}>
-            <h3 style={{ marginBottom: '24px', fontSize: '20px' }}>Edit Distributor</h3>
-            <form onSubmit={handleUpdate}>
-              <div className="form-grid">
-                <div className="input-group">
-                  <label>Firm Name</label>
-                  <input type="text" value={editForm.firm_name || ''} onChange={(e) => setEditForm({...editForm, firm_name: e.target.value})} required />
+          <div style={{ 
+            background: '#fff', 
+            borderRadius: '12px', 
+            width: '100%', 
+            maxWidth: '600px', 
+            maxHeight: '90vh', 
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{ padding: '24px 32px 16px', borderBottom: '1px solid var(--border-color)' }}>
+              <h3 style={{ margin: 0, fontSize: '20px' }}>Edit Distributor</h3>
+            </div>
+            
+            <div style={{ overflowY: 'auto', overflowX: 'hidden', padding: '24px 32px' }}>
+              <form id="edit-distributor-form" onSubmit={handleUpdate}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div className="input-group">
+                    <label>Firm Name</label>
+                    <input type="text" value={editForm.firm_name || ''} onChange={(e) => setEditForm({...editForm, firm_name: e.target.value})} required />
+                  </div>
+                  <div className="input-group">
+                    <label>Phone Number</label>
+                    <input type="text" value={editForm.phone_number || ''} onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})} required />
+                  </div>
+                  <div className="input-group">
+                    <label>GST Number</label>
+                    <input type="text" value={editForm.gst_number || ''} onChange={(e) => setEditForm({...editForm, gst_number: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Owner Name</label>
+                    <input type="text" value={editForm.owner_name || ''} onChange={(e) => setEditForm({...editForm, owner_name: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>FSSAI Number</label>
+                    <input type="text" value={editForm.fssai_number || ''} onChange={(e) => setEditForm({...editForm, fssai_number: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Address</label>
+                    <input type="text" value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Update PAN Card</label>
+                    <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, panFile: e.target.files ? e.target.files[0] : null})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Update Aadhar</label>
+                    <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, aadharFile: e.target.files ? e.target.files[0] : null})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Update Photo</label>
+                    <input type="file" accept="image/*" onChange={e => setEditForm({...editForm, photoFile: e.target.files ? e.target.files[0] : null})} />
+                  </div>
                 </div>
-                <div className="input-group">
-                  <label>Phone Number</label>
-                  <input type="text" value={editForm.phone_number || ''} onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})} required />
-                </div>
-                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-                  <label>GST Number</label>
-                  <input type="text" value={editForm.gst_number || ''} onChange={(e) => setEditForm({...editForm, gst_number: e.target.value})} />
-                </div>
-                <div className="input-group">
-                  <label>Owner Name</label>
-                  <input type="text" value={editForm.owner_name || ''} onChange={(e) => setEditForm({...editForm, owner_name: e.target.value})} />
-                </div>
-                <div className="input-group">
-                  <label>FSSAI Number</label>
-                  <input type="text" value={editForm.fssai_number || ''} onChange={(e) => setEditForm({...editForm, fssai_number: e.target.value})} />
-                </div>
-                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-                  <label>Address</label>
-                  <input type="text" value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} />
-                </div>
-                <div className="input-group">
-                  <label>Update PAN Card</label>
-                  <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, panFile: e.target.files ? e.target.files[0] : null})} />
-                </div>
-                <div className="input-group">
-                  <label>Update Aadhar</label>
-                  <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, aadharFile: e.target.files ? e.target.files[0] : null})} />
-                </div>
-                <div className="input-group">
-                  <label>Update Photo</label>
-                  <input type="file" accept="image/*" onChange={e => setEditForm({...editForm, photoFile: e.target.files ? e.target.files[0] : null})} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-                <button type="button" className="secondary-btn" onClick={() => setEditingDist(null)}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={isUpdating}>
-                  {isUpdating ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
+            
+            <div style={{ padding: '16px 32px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button type="button" className="secondary-btn" onClick={() => setEditingDist(null)}>Cancel</button>
+              <button type="submit" form="edit-distributor-form" className="primary-btn" disabled={isUpdating}>
+                {isUpdating ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

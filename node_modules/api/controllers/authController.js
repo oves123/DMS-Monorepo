@@ -43,7 +43,8 @@ const loginUser = async (req, res) => {
                 user_id: user.user_id,
                 role: user.role,
                 firm_name: user.firm_name,
-                phone_number: user.phone_number
+                phone_number: user.phone_number,
+                wallet_balance: user.wallet_balance || 0
             }
         });
 

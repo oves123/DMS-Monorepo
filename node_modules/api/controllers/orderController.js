@@ -5,8 +5,8 @@ exports.getAdminOrders = async (req, res) => {
     try {
         const result = await new sql.Request().query(`
             SELECT 
-                o.order_id, o.status, o.order_date, o.execution_date,
-                u.firm_name as distributor_name, u.phone_number as distributor_phone,
+                o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
+                u.firm_name as distributor_name, u.phone_number as distributor_phone, u.wallet_balance,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
                 v.pack_size, p.name as product_name, v.variant_id,
                 inv.current_stock_qty
@@ -27,9 +27,11 @@ exports.getAdminOrders = async (req, res) => {
                     order_id: row.order_id,
                     distributor_name: row.distributor_name,
                     distributor_phone: row.distributor_phone,
+                    wallet_balance: row.wallet_balance,
                     status: row.status,
                     order_date: row.order_date,
                     execution_date: row.execution_date,
+                    apply_wallet: row.apply_wallet,
                     items: []
                 };
             }
@@ -58,7 +60,7 @@ exports.executeOrder = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const orderId = req.params.id;
-        const { items } = req.body; // Array of { order_item_id, executed_qty, variant_id }
+        const { items, credit_applied = 0, extra_discount = 0, discount_reason = '' } = req.body; // Array of { order_item_id, executed_qty, variant_id }
         
         await transaction.begin();
 
@@ -113,7 +115,12 @@ exports.executeOrder = async (req, res) => {
         // Simple logic for taxes (assuming 18% total, 9% CGST, 9% SGST for demo)
         const cgst = subtotal * 0.09;
         const sgst = subtotal * 0.09;
-        const grand_total = subtotal + cgst + sgst;
+        let grand_total = subtotal + cgst + sgst;
+        
+        // Apply discounts
+        grand_total = grand_total - credit_applied - extra_discount;
+        if (grand_total < 0) grand_total = 0;
+
         const invoice_number = 'INV-' + new Date().getTime();
 
         const reqInvInsert = new sql.Request(transaction);
@@ -123,11 +130,32 @@ exports.executeOrder = async (req, res) => {
         reqInvInsert.input('cgst', sql.Decimal(12,2), cgst);
         reqInvInsert.input('sgst', sql.Decimal(12,2), sgst);
         reqInvInsert.input('total', sql.Decimal(12,2), grand_total);
+        reqInvInsert.input('credit_applied', sql.Decimal(12,2), credit_applied);
+        reqInvInsert.input('extra_discount', sql.Decimal(12,2), extra_discount);
+        reqInvInsert.input('discount_reason', sql.VarChar, discount_reason);
 
         await reqInvInsert.query(`
-            INSERT INTO Invoices (order_id, invoice_number, subtotal, cgst_amount, sgst_amount, grand_total)
-            VALUES (@order_id, @inv_no, @subtotal, @cgst, @sgst, @total)
+            INSERT INTO Invoices (order_id, invoice_number, subtotal, cgst_amount, sgst_amount, grand_total, credit_applied, extra_discount, discount_reason)
+            VALUES (@order_id, @inv_no, @subtotal, @cgst, @sgst, @total, @credit_applied, @extra_discount, @discount_reason)
         `);
+
+        // 5. Deduct Wallet Balance if credit applied
+        if (credit_applied > 0) {
+            // Get distributor_id
+            const distReq = new sql.Request(transaction);
+            distReq.input('order_id', sql.Int, orderId);
+            const distRes = await distReq.query(`SELECT distributor_id FROM Orders WHERE order_id = @order_id`);
+            if (distRes.recordset.length > 0) {
+                const distId = distRes.recordset[0].distributor_id;
+                const walletReq = new sql.Request(transaction);
+                walletReq.input('dist_id', sql.Int, distId);
+                walletReq.input('credit_applied', sql.Decimal(12,2), credit_applied);
+                await walletReq.query(`
+                    UPDATE Users SET wallet_balance = wallet_balance - @credit_applied
+                    WHERE user_id = @dist_id
+                `);
+            }
+        }
 
         await transaction.commit();
         res.json({ message: 'Order executed and invoice generated successfully' });
@@ -143,7 +171,7 @@ exports.executeOrder = async (req, res) => {
 exports.createOrder = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
-        const { distributor_id, items } = req.body; // items is an array of { variant_id, requested_qty, price_at_order }
+        const { distributor_id, items, apply_wallet } = req.body; // items is an array of { variant_id, requested_qty, price_at_order }
         
         await transaction.begin();
 
@@ -151,10 +179,11 @@ exports.createOrder = async (req, res) => {
         const orderReq = new sql.Request(transaction);
         orderReq.input('distributor_id', sql.Int, distributor_id);
         orderReq.input('status', sql.VarChar, 'PENDING');
+        orderReq.input('apply_wallet', sql.Bit, apply_wallet ? 1 : 0);
         const orderRes = await orderReq.query(`
-            INSERT INTO Orders (distributor_id, status, order_date)
+            INSERT INTO Orders (distributor_id, status, order_date, apply_wallet)
             OUTPUT inserted.order_id
-            VALUES (@distributor_id, @status, GETDATE())
+            VALUES (@distributor_id, @status, GETDATE(), @apply_wallet)
         `);
         
         const orderId = orderRes.recordset[0].order_id;
@@ -190,7 +219,7 @@ exports.getDistributorOrders = async (req, res) => {
             .input('user_id', sql.Int, userId)
             .query(`
             SELECT 
-                o.order_id, o.status, o.order_date, o.execution_date,
+                o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
                 v.pack_size, p.name as product_name, v.variant_id
             FROM Orders o

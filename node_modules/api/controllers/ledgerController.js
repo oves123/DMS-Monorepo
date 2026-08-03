@@ -6,6 +6,7 @@ exports.getInvoices = async (req, res) => {
         const result = await new sql.Request().query(`
             SELECT 
                 i.invoice_number, i.subtotal, i.cgst_amount, i.sgst_amount, i.grand_total, i.created_at,
+                i.credit_applied, i.extra_discount, i.discount_reason,
                 o.order_id, u.firm_name
             FROM Invoices i
             JOIN Orders o ON i.order_id = o.order_id
@@ -28,6 +29,7 @@ exports.getInvoiceDetail = async (req, res) => {
         const invResult = await request.query(`
             SELECT 
                 i.invoice_number, i.subtotal, i.cgst_amount, i.sgst_amount, i.grand_total, i.created_at,
+                i.credit_applied, i.extra_discount, i.discount_reason,
                 o.order_id, u.firm_name, u.gst_number, u.phone_number
             FROM Invoices i
             JOIN Orders o ON i.order_id = o.order_id

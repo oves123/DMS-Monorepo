@@ -21,6 +21,8 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/ledger', require('./routes/ledgerRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/settings', require('./routes/settingsRoutes'));
+app.use('/api/claims', require('./routes/claimsRoutes'));
 
 // Basic Test Route
 app.get('/', (req, res) => {

@@ -17,6 +17,11 @@ const AdminOrders = () => {
   // State for executing an order
   const [executingOrderId, setExecutingOrderId] = useState<number | null>(null);
   const [executionQuantities, setExecutionQuantities] = useState<Record<number, number>>({});
+  
+  // New States for Discounts and Wallet
+  const [extraDiscount, setExtraDiscount] = useState<number>(0);
+  const [discountReason, setDiscountReason] = useState<string>('');
+  const [creditApplied, setCreditApplied] = useState<number>(0);
 
   useEffect(() => {
     fetchOrders();
@@ -51,10 +56,16 @@ const AdminOrders = () => {
       }));
 
       await axios.put(`http://localhost:5001/api/orders/${order.order_id}/execute`, {
-        items: itemsPayload
+        items: itemsPayload,
+        extra_discount: extraDiscount,
+        discount_reason: discountReason,
+        credit_applied: creditApplied
       });
 
       setExecutingOrderId(null);
+      setExtraDiscount(0);
+      setDiscountReason('');
+      setCreditApplied(0);
       fetchOrders();
     } catch (err) {
       setError('Failed to execute order');
@@ -272,23 +283,77 @@ const AdminOrders = () => {
                 </table>
 
                 {order.status === 'PENDING' && (
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ marginTop: '16px' }}>
                     {executingOrderId === order.order_id ? (
-                      <>
-                        <button className="secondary-btn" onClick={() => setExecutingOrderId(null)} style={{ marginRight: '10px' }}>Cancel</button>
-                        <button className="primary-btn" onClick={() => handleExecute(order)}>Confirm & Dispatch</button>
-                      </>
-                    ) : (
-                      <button className="primary-btn" onClick={() => {
-                        setExecutingOrderId(order.order_id);
-                        const defaultQts: Record<number, number> = {};
-                        order.items.forEach((item: any) => {
-                          const maxQty = item.current_stock !== undefined ? item.current_stock : 0;
-                          defaultQts[item.order_item_id] = Math.min(item.requested_qty, maxQty);
-                        });
-                        setExecutionQuantities(defaultQts);
-                      }}>Process Order</button>
-                    )}
+                      <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                        <h4 style={{ margin: '0 0 12px 0', color: '#0f172a' }}>Billing Adjustments</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '16px', alignItems: 'end' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Wallet Credit to Apply</label>
+                            <input 
+                              type="number" 
+                              value={creditApplied} 
+                              onChange={e => setCreditApplied(parseFloat(e.target.value) || 0)}
+                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                            />
+                            {order.apply_wallet && <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>Distributor requested wallet discount</div>}
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Extra Discount (₹)</label>
+                            <input 
+                              type="number" 
+                              value={extraDiscount} 
+                              onChange={e => setExtraDiscount(parseFloat(e.target.value) || 0)}
+                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Discount Reason</label>
+                            <input 
+                              type="text" 
+                              placeholder="e.g. Free Delivery"
+                              value={discountReason} 
+                              onChange={e => setDiscountReason(e.target.value)}
+                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      {executingOrderId === order.order_id ? (
+                        <>
+                          <button className="secondary-btn" onClick={() => {
+                            setExecutingOrderId(null);
+                            setExtraDiscount(0);
+                            setDiscountReason('');
+                            setCreditApplied(0);
+                          }} style={{ marginRight: '10px' }}>Cancel</button>
+                          <button className="primary-btn" onClick={() => handleExecute(order)}>Confirm & Generate Bill</button>
+                        </>
+                      ) : (
+                        <button className="primary-btn" onClick={() => {
+                          setExecutingOrderId(order.order_id);
+                          const defaultQts: Record<number, number> = {};
+                          let orderTotal = 0;
+                          order.items.forEach((item: any) => {
+                            const maxQty = item.current_stock !== undefined ? item.current_stock : 0;
+                            const execQty = Math.min(item.requested_qty, maxQty);
+                            defaultQts[item.order_item_id] = execQty;
+                            orderTotal += execQty * item.price_at_order;
+                          });
+                          setExecutionQuantities(defaultQts);
+                          
+                          if (order.apply_wallet) {
+                              const wb = parseFloat(order.wallet_balance || 0);
+                              setCreditApplied(Math.min(wb, orderTotal));
+                          } else {
+                              setCreditApplied(0);
+                          }
+                        }}>Process Order</button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

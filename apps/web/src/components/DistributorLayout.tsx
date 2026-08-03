@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import '../styles/AdminLayout.css'; // Reusing the same layout styles
-import { LayoutDashboard, FileSpreadsheet, Clock, BarChart2, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileSpreadsheet, Clock, BarChart2, Menu, X, AlertTriangle } from 'lucide-react';
 
 const DistributorLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -19,6 +19,7 @@ const DistributorLayout = () => {
     { path: '/distributor/dashboard', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/distributor/place-order', name: 'Place Bulk Order', icon: <FileSpreadsheet size={20} /> },
     { path: '/distributor/orders', name: 'My Orders', icon: <Clock size={20} /> },
+    { path: '/distributor/claims', name: 'My Claims', icon: <AlertTriangle size={20} /> },
     { path: '/distributor/reports', name: 'My Reports', icon: <BarChart2 size={20} /> },
   ];
 
