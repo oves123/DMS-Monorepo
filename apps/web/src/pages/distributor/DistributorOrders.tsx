@@ -115,6 +115,15 @@ const DistributorOrders = () => {
             {currentOrders.map(order => {
               const statusStyle = getStatusColor(order.status);
               
+              // Calculate Totals
+              let totalBoxes = 0;
+              let totalAmount = 0;
+              order.items.forEach((item: any) => {
+                const qty = order.status === 'EXECUTED' ? (item.executed_qty || 0) : (item.requested_qty || 0);
+                totalBoxes += qty;
+                totalAmount += (qty * item.price_at_order);
+              });
+              
               return (
                 <div key={order.order_id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '20px', overflow: 'hidden' }}>
                   <div style={{ background: '#f8fafc', padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -170,6 +179,19 @@ const DistributorOrders = () => {
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot>
+                        <tr style={{ background: '#f8fafc', borderTop: '2px solid var(--border-color)' }}>
+                          <td colSpan={order.status === 'EXECUTED' ? 3 : 2} style={{ textAlign: 'right', fontWeight: 'bold', color: '#475569', padding: '12px' }}>
+                            Order Summary:
+                          </td>
+                          <td style={{ fontWeight: 'bold', color: '#0f172a', padding: '12px' }}>
+                            {totalBoxes}
+                          </td>
+                          <td style={{ fontWeight: 'bold', color: '#10b981', fontSize: '15px', padding: '12px' }}>
+                            ₹{totalAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 </div>

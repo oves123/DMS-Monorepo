@@ -159,7 +159,26 @@ const AdminOrders = () => {
             <div style={{ padding: '20px' }}>
             {currentItems.length === 0 ? (
               <div style={{ padding: '32px', textAlign: 'center', color: '#6b7280' }}>No orders match your filters.</div>
-            ) : currentItems.map((order) => (
+            ) : currentItems.map((order) => {
+              // Calculate Totals
+              let totalBoxes = 0;
+              let totalAmount = 0;
+              order.items.forEach((item: any) => {
+                let qty = 0;
+                if (order.status === 'EXECUTED') {
+                  qty = item.executed_qty || 0;
+                } else if (executingOrderId === order.order_id) {
+                  qty = executionQuantities[item.order_item_id] !== undefined 
+                        ? executionQuantities[item.order_item_id] 
+                        : Math.min(item.requested_qty, item.current_stock || 0);
+                } else {
+                  qty = item.requested_qty || 0;
+                }
+                totalBoxes += qty;
+                totalAmount += (qty * item.price_at_order);
+              });
+
+              return (
               <div key={order.order_id} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '20px', padding: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <div>
@@ -231,6 +250,25 @@ const AdminOrders = () => {
                       );
                     })}
                   </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#f8fafc', borderTop: '2px solid var(--border-color)' }}>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#475569', padding: '12px' }}>
+                        Order Summary:
+                      </td>
+                      <td style={{ fontWeight: 'bold', color: order.status === 'PENDING' && executingOrderId !== order.order_id ? '#0f172a' : '#9ca3af', padding: '12px' }}>
+                        {order.status === 'PENDING' && executingOrderId !== order.order_id ? totalBoxes : '-'}
+                      </td>
+                      <td></td>
+                      <td style={{ fontWeight: 'bold', color: '#10b981', fontSize: '15px', padding: '12px' }}>
+                        ₹{totalAmount.toFixed(2)}
+                      </td>
+                      {(executingOrderId === order.order_id || order.status === 'EXECUTED') && (
+                        <td style={{ fontWeight: 'bold', color: '#0f172a', padding: '12px' }}>
+                          {totalBoxes}
+                        </td>
+                      )}
+                    </tr>
+                  </tfoot>
                 </table>
 
                 {order.status === 'PENDING' && (
@@ -254,7 +292,8 @@ const AdminOrders = () => {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* Pagination */}
