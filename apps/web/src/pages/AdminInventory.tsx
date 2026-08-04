@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Search, Filter } from 'lucide-react';
 
 const AdminInventory = () => {
@@ -25,7 +25,7 @@ const AdminInventory = () => {
 
   const fetchInventory = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/inventory');
+      const response = await api.get('/api/inventory');
       setInventory(response.data);
     } catch (err) {
       setError('Failed to fetch inventory');
@@ -45,7 +45,7 @@ const AdminInventory = () => {
       if (field === 'stock') payload.current_stock = editValue;
       if (field === 'threshold') payload.low_stock_threshold = editValue;
 
-      await axios.put(`http://localhost:5001/api/inventory/inline/${variantId}`, payload);
+      await api.put(`/api/inventory/inline/${variantId}`, payload);
       
       setEditingCell(null);
       setEditValue('');

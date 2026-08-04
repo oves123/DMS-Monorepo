@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import api from '../lib/api';
 import { Menu, X, LayoutDashboard, Package, Archive, ShoppingCart, Users, FileText, BarChart2, AlertTriangle } from 'lucide-react';
 import '../styles/AdminLayout.css';
 
@@ -23,7 +23,7 @@ const AdminLayout = () => {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        const response = await axios.get('http://localhost:5001/api/dashboard/metrics');
+        const response = await api.get('/api/dashboard/metrics');
         setPendingOrders(response.data.pendingOrders || 0);
         setLowStockCount(response.data.lowStockCount || 0);
       } catch (err) {

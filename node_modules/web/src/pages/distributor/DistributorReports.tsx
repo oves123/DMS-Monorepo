@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
@@ -24,8 +24,8 @@ const DistributorReports = () => {
       setLoading(true);
       const query = `?startDate=${startDate}&endDate=${endDate}`;
       const [purchasesRes, productsRes] = await Promise.all([
-        axios.get(`http://localhost:5001/api/reports/distributor/${user.user_id}/purchases${query}`),
-        axios.get(`http://localhost:5001/api/reports/distributor/${user.user_id}/products${query}`)
+        api.get(`/api/reports/distributor/${user.user_id}/purchases${query}`),
+        api.get(`/api/reports/distributor/${user.user_id}/products${query}`)
       ]);
 
       setPurchaseData(purchasesRes.data);

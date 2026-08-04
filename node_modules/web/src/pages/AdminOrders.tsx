@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const AdminOrders = () => {
@@ -29,7 +29,7 @@ const AdminOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/orders/admin');
+      const response = await api.get('/api/orders/admin');
       setOrders(response.data);
     } catch (err) {
       setError('Failed to fetch orders');
@@ -55,7 +55,7 @@ const AdminOrders = () => {
             : item.requested_qty
       }));
 
-      await axios.put(`http://localhost:5001/api/orders/${order.order_id}/execute`, {
+      await api.put(`/api/orders/${order.order_id}/execute`, {
         items: itemsPayload,
         extra_discount: extraDiscount,
         discount_reason: discountReason,

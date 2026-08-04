@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   LineChart, Line 
@@ -43,7 +43,7 @@ const AdminReports = () => {
   useEffect(() => {
     const fetchDistributors = async () => {
       try {
-        const res = await axios.get('http://localhost:5001/api/distributors');
+        const res = await api.get('/api/distributors');
         setDistributorsList(res.data);
       } catch (err) {
         console.error('Failed to fetch distributors', err);
@@ -63,10 +63,10 @@ const AdminReports = () => {
       
       if (selectedDistributor === 'all') {
         const [salesRes, prodRes, distRes, invRes] = await Promise.all([
-          axios.get(`http://localhost:5001/api/reports/admin/sales${query}`),
-          axios.get(`http://localhost:5001/api/reports/admin/products${query}`),
-          axios.get(`http://localhost:5001/api/reports/admin/distributors${query}`),
-          axios.get(`http://localhost:5001/api/reports/admin/inventory`)
+          api.get(`/api/reports/admin/sales${query}`),
+          api.get(`/api/reports/admin/products${query}`),
+          api.get(`/api/reports/admin/distributors${query}`),
+          api.get(`/api/reports/admin/inventory`)
         ]);
 
         setSalesData(salesRes.data);
@@ -75,8 +75,8 @@ const AdminReports = () => {
         setInventoryAlerts(invRes.data);
       } else {
         const [salesRes, prodRes] = await Promise.all([
-          axios.get(`http://localhost:5001/api/reports/distributor/${selectedDistributor}/purchases${query}`),
-          axios.get(`http://localhost:5001/api/reports/distributor/${selectedDistributor}/products${query}`)
+          api.get(`/api/reports/distributor/${selectedDistributor}/purchases${query}`),
+          api.get(`/api/reports/distributor/${selectedDistributor}/products${query}`)
         ]);
 
         // Map distributor data to match the admin chart keys

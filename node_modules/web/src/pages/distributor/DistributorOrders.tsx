@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { Package, FileText, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import InvoiceModal from '../../components/InvoiceModal';
 import { useToast } from '../../components/Toast';
@@ -35,7 +35,7 @@ const DistributorOrders = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/settings/company');
+      const response = await api.get('/api/settings/company');
       if (response.data && response.data.claim_window_days) {
         setClaimWindowDays(response.data.claim_window_days);
       }
@@ -46,7 +46,7 @@ const DistributorOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get(`http://localhost:5001/api/orders/distributor/${user.user_id}`);
+      const response = await api.get(`/api/orders/distributor/${user.user_id}`);
       setOrders(response.data);
     } catch (err) {
       console.error('Failed to fetch orders');
@@ -58,7 +58,7 @@ const DistributorOrders = () => {
   const fetchClaims = async () => {
     if (!user.user_id) return;
     try {
-      const response = await axios.get(`http://localhost:5001/api/claims/distributor/${user.user_id}`);
+      const response = await api.get(`/api/claims/distributor/${user.user_id}`);
       setFiledClaims(response.data);
     } catch (err) {
       console.error('Failed to fetch claims');
@@ -90,7 +90,7 @@ const DistributorOrders = () => {
         formData.append('image', claimImage);
       }
 
-      await axios.post('http://localhost:5001/api/claims/submit', formData, {
+      await api.post('/api/claims/submit', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       showToast('Claim submitted successfully!', 'success');

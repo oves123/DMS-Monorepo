@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 
 const DistributorClaims = () => {
   const [claims, setClaims] = useState<any[]>([]);
@@ -14,7 +14,7 @@ const DistributorClaims = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await axios.get(`http://localhost:5001/api/claims/distributor/${user.user_id}`);
+      const response = await api.get(`/api/claims/distributor/${user.user_id}`);
       setClaims(response.data);
     } catch (err) {
       setError('Failed to fetch claims');
@@ -64,7 +64,7 @@ const DistributorClaims = () => {
                       {claim.has_image === 1 && (
                         <div style={{ marginTop: '8px' }}>
                           <a 
-                            href={`http://localhost:5001/api/claims/${claim.claim_id}/image`} 
+                            href={`/api/claims/${claim.claim_id}/image`} 
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '4px' }}

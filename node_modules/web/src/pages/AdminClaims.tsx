@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Search, CheckCircle, XCircle, Download, Calendar, ArrowUpDown } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import Papa from 'papaparse';
@@ -21,7 +21,7 @@ const AdminClaims = () => {
 
   const fetchClaims = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/claims');
+      const response = await api.get('/api/claims');
       setClaims(response.data);
     } catch (err) {
       setError('Failed to fetch claims');
@@ -32,7 +32,7 @@ const AdminClaims = () => {
 
   const handleUpdateStatus = async (claimId: number, status: 'APPROVED' | 'REJECTED', amount?: number) => {
     try {
-      await axios.put(`http://localhost:5001/api/claims/${claimId}/status`, { status, amount });
+      await api.put(`/api/claims/${claimId}/status`, { status, amount });
       showToast(`Claim ${status.toLowerCase()} successfully!`, 'success');
       fetchClaims();
     } catch (err) {
@@ -211,7 +211,7 @@ const AdminClaims = () => {
                       {claim.has_image === 1 && (
                         <div style={{ marginTop: '8px' }}>
                           <button 
-                            onClick={() => setPhotoModal({ isOpen: true, url: `http://localhost:5001/api/claims/${claim.claim_id}/image` })}
+                            onClick={() => setPhotoModal({ isOpen: true, url: `/api/claims/${claim.claim_id}/image` })}
                             style={{ fontSize: '12px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
                           >
                             📷 View Photo

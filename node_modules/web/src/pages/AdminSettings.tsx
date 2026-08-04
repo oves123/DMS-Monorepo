@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Save, Upload, Banknote, Building, Mail, CheckCircle } from 'lucide-react';
 
 const AdminSettings = () => {
@@ -24,11 +24,11 @@ const AdminSettings = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/settings/company');
+      const response = await api.get('/api/settings/company');
       if (response.data) {
         setSettings(response.data);
       }
-      setQrPreview('http://localhost:5001/api/settings/company/qr?' + new Date().getTime());
+      setQrPreview('/api/settings/company/qr?' + new Date().getTime());
     } catch (err) {
       console.error('Failed to fetch settings');
     } finally {
@@ -66,7 +66,7 @@ const AdminSettings = () => {
         formData.append('qr_code_image', qrFile);
       }
 
-      await axios.put('http://localhost:5001/api/settings/company', formData, {
+      await api.put('/api/settings/company', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

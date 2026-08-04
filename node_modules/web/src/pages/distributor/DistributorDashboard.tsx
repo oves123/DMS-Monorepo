@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { Package, Clock, CheckCircle, ArrowRight, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -16,7 +16,7 @@ const DistributorDashboard = () => {
   const fetchWalletBalance = async () => {
     if (!user.user_id) return;
     try {
-      const response = await axios.get(`http://localhost:5001/api/distributors/${user.user_id}/wallet`);
+      const response = await api.get(`/api/distributors/${user.user_id}/wallet`);
       setWalletBalance(response.data.wallet_balance || 0);
     } catch (err) {
       console.error('Failed to fetch wallet');
@@ -25,7 +25,7 @@ const DistributorDashboard = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get(`http://localhost:5001/api/orders/distributor/${user.user_id}`);
+      const response = await api.get(`/api/orders/distributor/${user.user_id}`);
       setOrders(response.data);
     } catch (err) {
       console.error('Failed to fetch orders');

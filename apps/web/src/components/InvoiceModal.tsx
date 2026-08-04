@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { X, Printer } from 'lucide-react';
 
 interface InvoiceModalProps {
@@ -19,11 +19,11 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
 
   const fetchInvoiceDetail = async () => {
     try {
-      const response = await axios.get(`http://localhost:5001/api/ledger/invoice/${orderId}`);
+      const response = await api.get(`/api/ledger/invoice/${orderId}`);
       setData(response.data);
       
       try {
-        const settingsRes = await axios.get('http://localhost:5001/api/settings/company');
+        const settingsRes = await api.get('/api/settings/company');
         setSettings(settingsRes.data);
       } catch (e) {
         console.error('Failed to fetch company settings');
@@ -172,7 +172,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     background: '#fff'
                   }}>
                     <img 
-                      src="http://localhost:5001/api/settings/company/qr" 
+                      src="/api/settings/company/qr" 
                       alt="UPI QR Code" 
                       style={{ width: '120px', height: '120px', objectFit: 'contain' }}
                       onError={(e) => {

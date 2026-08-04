@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Link } from 'react-router-dom';
 import { Search, Edit, Trash2, Filter, Upload, Plus, Package } from 'lucide-react';
 import Papa from 'papaparse';
@@ -38,7 +38,7 @@ const AdminProducts = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/products');
+      const response = await api.get('/api/products');
       const validProducts = response.data.filter((p: any) => p.variants && p.variants.length > 0);
       
       // Sort variants numerically by pack size (e.g. 5Rs before 10Rs)
@@ -65,7 +65,7 @@ const AdminProducts = () => {
   const handleDelete = async (variant_id: number) => {
     if (!window.confirm('Are you sure you want to delete this product variant?')) return;
     try {
-      await axios.delete(`http://localhost:5001/api/products/${variant_id}`);
+      await api.delete(`/api/products/${variant_id}`);
       fetchProducts(); // Refresh list
     } catch (err) {
       showToast('Failed to delete product', 'error');
@@ -82,7 +82,7 @@ const AdminProducts = () => {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const response = await axios.post('http://localhost:5001/api/products/bulk', results.data);
+          const response = await api.post('/api/products/bulk', results.data);
           showToast(`Upload complete: ${response.data.successCount} added, ${response.data.skipCount} skipped.`, 'success');
           fetchProducts();
         } catch (err: any) {
@@ -109,7 +109,7 @@ const AdminProducts = () => {
     e.preventDefault();
     setIsUpdating(true);
     try {
-      await axios.put(`http://localhost:5001/api/products/${editingVariant.variant_id}`, {
+      await api.put(`/api/products/${editingVariant.variant_id}`, {
         name: editingVariant.product_name, // Name changes are mostly handled at master product level now
         category_name: editingVariant.category_name,
         hsn_code: editingVariant.hsn_code,
@@ -138,7 +138,7 @@ const AdminProducts = () => {
         // Let's implement it quickly in the frontend: 
         // We could just add a new route, but for now we'll do it safely.
         // I will add a new endpoint in the backend for POST /api/products/:id/variants
-        await axios.post(`http://localhost:5001/api/products/${addingVariantTo.product_id}/variants`, {
+        await api.post(`/api/products/${addingVariantTo.product_id}/variants`, {
             pack_size: newVariantForm.pack_size,
             distributor_rate: parseFloat(newVariantForm.distributor_rate),
             retailer_rate: parseFloat(newVariantForm.retailer_rate),

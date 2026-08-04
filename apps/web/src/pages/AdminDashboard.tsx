@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Link } from 'react-router-dom';
 import { Package, Users, ShoppingCart, PlusCircle, LayoutDashboard, Archive, Truck } from 'lucide-react';
 
@@ -18,7 +18,7 @@ const AdminDashboard = () => {
 
   const fetchMetrics = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/dashboard/metrics');
+      const response = await api.get('/api/dashboard/metrics');
       setMetrics(response.data);
     } catch (err) {
       console.error('Failed to fetch dashboard metrics');

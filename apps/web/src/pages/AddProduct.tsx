@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 
 const AddProduct = () => {
@@ -26,7 +26,7 @@ const AddProduct = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/products/categories');
+      const response = await api.get('/api/products/categories');
       setCategories(response.data);
     } catch (err) {
       console.error('Failed to load categories', err);
@@ -59,7 +59,7 @@ const AddProduct = () => {
 
       // If user wants to create a new category
       if (categoryId === 'NEW' && newCategoryName.trim() !== '') {
-        const catRes = await axios.post('http://localhost:5001/api/products/categories', {
+        const catRes = await api.post('/api/products/categories', {
           name: newCategoryName
         });
         finalCategoryId = catRes.data.category_id;
@@ -78,7 +78,7 @@ const AddProduct = () => {
         }))
       };
 
-      await axios.post('http://localhost:5001/api/products', payload);
+      await api.post('/api/products', payload);
       navigate('/admin/products');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to add product');

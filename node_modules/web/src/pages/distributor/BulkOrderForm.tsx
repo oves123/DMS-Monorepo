@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
-import axios from 'axios';
+import api from '../../lib/api';
 import { useToast } from '../../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import { Search, Package, Trash2, X } from 'lucide-react';
@@ -42,7 +42,7 @@ const BulkOrderForm = () => {
   useEffect(() => {
     fetchCatalog();
     if (user.user_id) {
-      axios.get(`http://localhost:5001/api/distributors/${user.user_id}/wallet`)
+      api.get(`/api/distributors/${user.user_id}/wallet`)
         .then(res => setWalletBalance(res.data.wallet_balance || 0))
         .catch(() => console.error('Failed to fetch wallet'));
     }
@@ -50,7 +50,7 @@ const BulkOrderForm = () => {
 
   const fetchCatalog = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/products');
+      const response = await api.get('/api/products');
       const validProducts = response.data.filter((p: any) => p.variants && p.variants.length > 0);
       
       // Sort variants numerically by pack size (e.g. 5Rs before 10Rs)
@@ -132,7 +132,7 @@ const BulkOrderForm = () => {
         });
       });
 
-      await axios.post('http://localhost:5001/api/orders', {
+      await api.post('/api/orders', {
         distributor_id: user.user_id,
         items,
         apply_wallet: applyWallet ? 1 : 0

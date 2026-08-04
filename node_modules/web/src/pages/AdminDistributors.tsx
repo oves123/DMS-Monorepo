@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge } from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
@@ -44,7 +44,7 @@ const AdminDistributors = () => {
 
   const fetchDistributors = async () => {
     try {
-      const response = await axios.get('http://localhost:5001/api/distributors');
+      const response = await api.get('/api/distributors');
       setDistributors(response.data);
     } catch (err) {
       setError('Failed to fetch distributors');
@@ -71,7 +71,7 @@ const AdminDistributors = () => {
       if (aadharFile) formData.append('aadharFile', aadharFile);
       if (photoFile) formData.append('photoFile', photoFile);
 
-      await axios.post('http://localhost:5001/api/distributors', formData, {
+      await api.post('/api/distributors', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -97,7 +97,7 @@ const AdminDistributors = () => {
   const handleDelete = async (user_id: number) => {
     if (!window.confirm('Are you sure you want to delete this distributor?')) return;
     try {
-      await axios.delete(`http://localhost:5001/api/distributors/${user_id}`);
+      await api.delete(`/api/distributors/${user_id}`);
       fetchDistributors();
     } catch (err) {
       showToast('Failed to delete distributor', 'error');
@@ -125,7 +125,7 @@ const AdminDistributors = () => {
       if (editForm.aadharFile) formData.append('aadharFile', editForm.aadharFile);
       if (editForm.photoFile) formData.append('photoFile', editForm.photoFile);
 
-      await axios.put(`http://localhost:5001/api/distributors/${editingDist.user_id}`, formData, {
+      await api.put(`/api/distributors/${editingDist.user_id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setEditingDist(null);
@@ -148,7 +148,7 @@ const AdminDistributors = () => {
       skipEmptyLines: true,
       complete: async (results) => {
         try {
-          const res = await axios.post('http://localhost:5001/api/distributors/bulk', results.data);
+          const res = await api.post('/api/distributors/bulk', results.data);
           showToast(`Bulk upload success: ${res.data.successCount} added, ${res.data.skipCount} skipped.`, 'success');
           fetchDistributors();
         } catch (err: any) {
@@ -369,17 +369,17 @@ const AdminDistributors = () => {
                         <td>{d.address || '-'}</td>
                         <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {d.has_pan === 1 && (
-                            <a href={`http://localhost:5001/api/distributors/${d.user_id}/file/pan`} target="_blank" rel="noopener noreferrer" title="View PAN">
+                            <a href={`/api/distributors/${d.user_id}/file/pan`} target="_blank" rel="noopener noreferrer" title="View PAN">
                               <FileText size={16} color="#3b82f6" />
                             </a>
                           )}
                           {d.has_aadhar === 1 && (
-                            <a href={`http://localhost:5001/api/distributors/${d.user_id}/file/aadhar`} target="_blank" rel="noopener noreferrer" title="View Aadhar">
+                            <a href={`/api/distributors/${d.user_id}/file/aadhar`} target="_blank" rel="noopener noreferrer" title="View Aadhar">
                               <FileBadge size={16} color="#10b981" />
                             </a>
                           )}
                           {d.has_photo === 1 && (
-                            <a href={`http://localhost:5001/api/distributors/${d.user_id}/file/photo`} target="_blank" rel="noopener noreferrer" title="View Photo">
+                            <a href={`/api/distributors/${d.user_id}/file/photo`} target="_blank" rel="noopener noreferrer" title="View Photo">
                               <Image size={16} color="#8b5cf6" />
                             </a>
                           )}
