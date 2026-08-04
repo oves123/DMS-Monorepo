@@ -166,7 +166,7 @@ const BulkOrderForm = () => {
 
   return (
     <div style={{ paddingBottom: '80px' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', marginTop: '-20px' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 className="page-title" style={{ margin: 0 }}>Bulk Purchase Order Form</h2>
 
         {/* Category Dropdown & Search Bar */}
@@ -314,20 +314,8 @@ const BulkOrderForm = () => {
       </div>
 
       {/* Sticky Bottom Bar */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: '250px',
-        right: 0,
-        background: '#fff',
-        padding: '12px 24px',
-        boxShadow: '0 -4px 12px rgba(0,0,0,0.1)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        zIndex: 100
-      }}>
-        <div style={{ display: 'flex', gap: '48px' }}>
+      <div className="sticky-bottom-bar">
+        <div className="sticky-bottom-metrics">
           <div>
             <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Total Quantity</div>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a' }}>{grandTotalQty} Boxes</div>
@@ -443,8 +431,8 @@ const BulkOrderForm = () => {
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
-              <div style={{ display: 'flex', gap: '32px' }}>
+            <div className="modal-footer">
+              <div className="modal-footer-metrics">
                 <div>
                   <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Total Boxes</div>
                   <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>{grandTotalQty}</div>
@@ -462,7 +450,7 @@ const BulkOrderForm = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div className="modal-footer-actions">
                 {walletBalance > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ecfdf5', padding: '8px 16px', borderRadius: '8px', border: '1px solid #10b981' }}>
                     <input 

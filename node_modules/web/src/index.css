@@ -241,3 +241,36 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
+
+/* Mobile Responsive Utility Classes */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .variant-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .page-header > div {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 12px !important;
+  }
+  
+  .page-header > div > div, 
+  .page-header > div > input, 
+  .page-header > div > select,
+  .page-header > div > button {
+    width: 100% !important;
+  }
+}

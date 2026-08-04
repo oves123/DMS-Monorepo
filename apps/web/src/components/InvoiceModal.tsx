@@ -148,7 +148,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
             </div>
 
             <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '2px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
                 <div style={{ flex: 1, paddingRight: '20px' }}>
                   <h3 style={{ fontSize: '15px', color: '#0f172a', marginBottom: '12px' }}>Payment Instructions (Bank Transfer)</h3>
                   {settings ? (
@@ -172,7 +172,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     background: '#fff'
                   }}>
                     <img 
-                      src="/api/settings/company/qr" 
+                      src={`${import.meta.env.VITE_API_URL}/api/settings/company/qr`}
                       alt="UPI QR Code" 
                       style={{ width: '120px', height: '120px', objectFit: 'contain' }}
                       onError={(e) => {
