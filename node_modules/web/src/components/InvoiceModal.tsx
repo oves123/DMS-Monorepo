@@ -141,7 +141,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', fontSize: '20px', fontWeight: 'bold' }}>
                   <span>Grand Total</span>
                   <span style={{ color: '#059669' }}>
-                    ₹{((data.invoice.grand_total || 0) - (data.invoice.extra_discount || 0) - (data.invoice.credit_applied || 0)).toFixed(2)}
+                    ₹{(data.invoice.grand_total || 0).toFixed(2)}
                   </span>
                 </div>
               </div>

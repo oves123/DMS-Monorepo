@@ -158,7 +158,7 @@ const AdminDistributors = () => {
           if (fileInputRef.current) fileInputRef.current.value = '';
         }
       },
-      error: (err) => {
+      error: () => {
         showToast('Error parsing CSV file', 'error');
         setUploadingBulk(false);
       }

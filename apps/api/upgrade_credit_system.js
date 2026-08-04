@@ -1,4 +1,4 @@
-require('dotenv').config();
+  require('dotenv').config();
 const sql = require('mssql');
 
 const dbConfig = {

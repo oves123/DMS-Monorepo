@@ -10,7 +10,7 @@ const AdminReports = () => {
   const [salesData, setSalesData] = useState([]);
   const [productData, setProductData] = useState([]);
   const [distributorData, setDistributorData] = useState([]);
-  const [inventoryAlerts, setInventoryAlerts] = useState([]);
+  const [inventoryAlerts, setInventoryAlerts] = useState<any[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(true);

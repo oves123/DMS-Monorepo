@@ -232,7 +232,7 @@ const AdminInventory = () => {
                           style={{ cursor: 'pointer', position: 'relative' }}
                           title="Click to quickly edit stock"
                         >
-                          {editingCell?.variantId === item.variant_id && editingCell.field === 'stock' ? (
+                          {editingCell?.variantId === item.variant_id && editingCell?.field === 'stock' ? (
                             <input 
                               type="number"
                               autoFocus
@@ -273,7 +273,7 @@ const AdminInventory = () => {
                           style={{ cursor: 'pointer' }}
                           title="Click to quickly edit limit"
                         >
-                          {editingCell?.variantId === item.variant_id && editingCell.field === 'threshold' ? (
+                          {editingCell?.variantId === item.variant_id && editingCell?.field === 'threshold' ? (
                             <input 
                               type="number"
                               autoFocus

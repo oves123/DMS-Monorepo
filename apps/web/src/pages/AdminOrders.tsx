@@ -282,6 +282,29 @@ const AdminOrders = () => {
                   </tfoot>
                 </table>
 
+                {order.status === 'EXECUTED' && (
+                  <div style={{ marginTop: '16px', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '24px' }}>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Wallet Credit Applied</div>
+                          <div style={{ fontSize: '16px', color: '#0f172a', fontWeight: 500 }}>₹{order.credit_applied?.toFixed(2) || '0.00'}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Extra Discount</div>
+                          <div style={{ fontSize: '16px', color: '#0f172a', fontWeight: 500 }}>₹{order.extra_discount?.toFixed(2) || '0.00'}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Final Payable</div>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
+                           ₹{order.final_payable?.toFixed(2) || '0.00'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {order.status === 'PENDING' && (
                   <div style={{ marginTop: '16px' }}>
                     {executingOrderId === order.order_id ? (
@@ -293,8 +316,9 @@ const AdminOrders = () => {
                             <input 
                               type="number" 
                               value={creditApplied} 
-                              onChange={e => setCreditApplied(parseFloat(e.target.value) || 0)}
-                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                              readOnly
+                              disabled
+                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' }}
                             />
                             {order.apply_wallet && <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>Distributor requested wallet discount</div>}
                           </div>
@@ -316,6 +340,18 @@ const AdminOrders = () => {
                               onChange={e => setDiscountReason(e.target.value)}
                               style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                             />
+                          </div>
+                        </div>
+                        
+                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Final Payable:</div>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
+                            {(creditApplied > 0 || extraDiscount > 0) && (
+                              <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '16px', marginRight: '12px' }}>
+                                ₹{totalAmount.toFixed(2)}
+                              </span>
+                            )}
+                            ₹{Math.max(0, totalAmount - (creditApplied || 0) - (extraDiscount || 0)).toFixed(2)}
                           </div>
                         </div>
                       </div>

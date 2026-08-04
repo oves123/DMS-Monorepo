@@ -44,7 +44,7 @@ const BulkOrderForm = () => {
     if (user.user_id) {
       axios.get(`http://localhost:5001/api/distributors/${user.user_id}/wallet`)
         .then(res => setWalletBalance(res.data.wallet_balance || 0))
-        .catch(err => console.error('Failed to fetch wallet'));
+        .catch(() => console.error('Failed to fetch wallet'));
     }
   }, []);
 
@@ -334,7 +334,14 @@ const BulkOrderForm = () => {
           </div>
           <div>
             <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Grand Total Value</div>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>₹{grandTotalValue.toFixed(2)}</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
+              {applyWallet && walletBalance > 0 && (
+                <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '16px', marginRight: '8px' }}>
+                  ₹{grandTotalValue.toFixed(2)}
+                </span>
+              )}
+              ₹{(applyWallet ? Math.max(0, grandTotalValue - walletBalance) : grandTotalValue).toFixed(2)}
+            </div>
           </div>
         </div>
 
@@ -444,7 +451,14 @@ const BulkOrderForm = () => {
                 </div>
                 <div>
                   <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Grand Total</div>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>₹{grandTotalValue.toFixed(2)}</div>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
+                    {applyWallet && walletBalance > 0 && (
+                      <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '16px', marginRight: '8px' }}>
+                        ₹{grandTotalValue.toFixed(2)}
+                      </span>
+                    )}
+                    ₹{(applyWallet ? Math.max(0, grandTotalValue - walletBalance) : grandTotalValue).toFixed(2)}
+                  </div>
                 </div>
               </div>
 

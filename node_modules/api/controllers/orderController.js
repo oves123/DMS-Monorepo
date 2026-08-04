@@ -9,13 +9,15 @@ exports.getAdminOrders = async (req, res) => {
                 u.firm_name as distributor_name, u.phone_number as distributor_phone, u.wallet_balance,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
                 v.pack_size, p.name as product_name, v.variant_id,
-                inv.current_stock_qty
+                inv.current_stock_qty,
+                i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
             JOIN Users u ON o.distributor_id = u.user_id
             JOIN OrderItems oi ON o.order_id = oi.order_id
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
             LEFT JOIN Inventory inv ON v.variant_id = inv.variant_id
+            LEFT JOIN Invoices i ON o.order_id = i.order_id
             ORDER BY o.order_date DESC
         `);
 
@@ -32,6 +34,9 @@ exports.getAdminOrders = async (req, res) => {
                     order_date: row.order_date,
                     execution_date: row.execution_date,
                     apply_wallet: row.apply_wallet,
+                    credit_applied: row.credit_applied || 0,
+                    extra_discount: row.extra_discount || 0,
+                    final_payable: row.final_payable || 0,
                     items: []
                 };
             }
@@ -221,11 +226,13 @@ exports.getDistributorOrders = async (req, res) => {
             SELECT 
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, v.variant_id
+                v.pack_size, p.name as product_name, v.variant_id,
+                i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
             JOIN OrderItems oi ON o.order_id = oi.order_id
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
+            LEFT JOIN Invoices i ON o.order_id = i.order_id
             WHERE o.distributor_id = @user_id
             ORDER BY o.order_date DESC
         `);
@@ -239,6 +246,10 @@ exports.getDistributorOrders = async (req, res) => {
                     status: row.status,
                     order_date: row.order_date,
                     execution_date: row.execution_date,
+                    apply_wallet: row.apply_wallet,
+                    credit_applied: row.credit_applied || 0,
+                    extra_discount: row.extra_discount || 0,
+                    final_payable: row.final_payable || 0,
                     items: []
                 };
             }
