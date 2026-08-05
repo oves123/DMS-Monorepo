@@ -19,6 +19,7 @@ const AdminLayout = () => {
 
   const [pendingOrders, setPendingOrders] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
+  const [pendingClaims, setPendingClaims] = useState(0);
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -26,6 +27,7 @@ const AdminLayout = () => {
         const response = await api.get('/api/dashboard/metrics');
         setPendingOrders(response.data.pendingOrders || 0);
         setLowStockCount(response.data.lowStockCount || 0);
+        setPendingClaims(response.data.pendingClaims || 0);
       } catch (err) {
         console.error('Failed to fetch pending orders for badge');
       }
@@ -102,6 +104,19 @@ const AdminLayout = () => {
                     marginLeft: '8px'
                   }}>
                     {lowStockCount}
+                  </span>
+                )}
+                {item.name === 'Claims & Credits' && pendingClaims > 0 && (
+                  <span style={{
+                    background: '#ef4444',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    marginLeft: '8px'
+                  }}>
+                    {pendingClaims}
                   </span>
                 )}
               </span>

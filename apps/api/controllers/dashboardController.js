@@ -10,6 +10,12 @@ exports.getMetrics = async (req, res) => {
         `);
         const pendingOrders = ordersRes.recordset[0].count;
 
+        // Get Pending Claims count
+        const claimsRes = await request.query(`
+            SELECT COUNT(*) as count FROM Claims WHERE status = 'PENDING'
+        `);
+        const pendingClaims = claimsRes.recordset[0].count;
+
         // Get Total Products count
         const productsRes = await request.query(`
             SELECT COUNT(*) as count FROM Products
@@ -41,6 +47,7 @@ exports.getMetrics = async (req, res) => {
 
         res.json({
             pendingOrders,
+            pendingClaims,
             totalProducts,
             activeDistributors,
             lowStockCount,

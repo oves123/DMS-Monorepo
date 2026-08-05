@@ -6,6 +6,7 @@ import { Package, Users, ShoppingCart, PlusCircle, LayoutDashboard, Archive, Tru
 const AdminDashboard = () => {
   const [metrics, setMetrics] = useState({
     pendingOrders: 0,
+    pendingClaims: 0,
     totalProducts: 0,
     activeDistributors: 0,
     lowStockCount: 0,
@@ -66,6 +67,33 @@ const AdminDashboard = () => {
               </div>
             </div>
             <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '16px', color: '#0f172a' }}>{metrics.pendingOrders}</p>
+          </div>
+
+          {/* Card: Pending Claims */}
+          <div 
+            onClick={() => window.location.href='/admin/claims'}
+            style={{ 
+            padding: '24px', 
+            borderRadius: '12px', 
+            background: metrics.pendingClaims > 0 ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)', 
+            boxShadow: metrics.pendingClaims > 0 ? '0 4px 14px 0 rgba(245, 158, 11, 0.39)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+            border: metrics.pendingClaims > 0 ? '1px solid #fcd34d' : '1px solid #f1f5f9',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            cursor: 'pointer',
+            animation: metrics.pendingClaims > 0 ? 'pulse 2s infinite' : 'none'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ color: metrics.pendingClaims > 0 ? '#b45309' : '#64748b', fontSize: '14px', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Pending Claims</h4>
+              <div style={{ background: metrics.pendingClaims > 0 ? '#fef3c7' : '#f1f5f9', padding: '8px', borderRadius: '8px' }}>
+                <Archive size={20} color={metrics.pendingClaims > 0 ? "#d97706" : "#64748b"} />
+              </div>
+            </div>
+            <p style={{ fontSize: '36px', fontWeight: 'bold', marginTop: '16px', color: metrics.pendingClaims > 0 ? '#b45309' : '#0f172a' }}>{metrics.pendingClaims}</p>
           </div>
 
           {/* Card 2 */}
@@ -237,5 +265,18 @@ const AdminDashboard = () => {
     </div>
   );
 };
+
+// Add keyframes for the pulse effect dynamically or just keep it simple
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 export default AdminDashboard;
