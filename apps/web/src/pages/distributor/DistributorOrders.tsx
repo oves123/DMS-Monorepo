@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../../lib/api';
-import { Package, FileText, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, FileText, Search, Filter, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import InvoiceModal from '../../components/InvoiceModal';
 import { useToast } from '../../components/Toast';
 
@@ -11,10 +11,12 @@ const DistributorOrders = () => {
   const [claimWindowDays, setClaimWindowDays] = useState(7);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   
   // Claim State
   const [claimItem, setClaimItem] = useState<any>(null);
-  const [claimQty, setClaimQty] = useState(1);
+  const [claimQty, setClaimQty] = useState(0);
+  const [claimPieces, setClaimPieces] = useState(0);
   const [claimReason, setClaimReason] = useState('');
   const [claimImage, setClaimImage] = useState<File | null>(null);
   const [submittingClaim, setSubmittingClaim] = useState(false);
@@ -84,6 +86,7 @@ const DistributorOrders = () => {
       formData.append('order_id', claimItem.order_id);
       formData.append('variant_id', claimItem.variant_id);
       formData.append('quantity', claimQty.toString());
+      formData.append('pieces_qty', claimPieces.toString());
       formData.append('reason', claimReason);
       formData.append('distributor_id', user.user_id);
       if (claimImage) {
@@ -95,7 +98,8 @@ const DistributorOrders = () => {
       });
       showToast('Claim submitted successfully!', 'success');
       setClaimItem(null);
-      setClaimQty(1);
+      setClaimQty(0);
+      setClaimPieces(0);
       setClaimReason('');
       setClaimImage(null);
       fetchClaims(); // Refresh claims to update UI
@@ -193,9 +197,24 @@ const DistributorOrders = () => {
               
               return (
                 <div key={order.order_id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '20px', overflow: 'hidden' }}>
-                  <div style={{ background: '#f8fafc', padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div 
+                    style={{ background: '#f8fafc', padding: '16px 20px', borderBottom: expandedOrderId === order.order_id ? '1px solid var(--border-color)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                    onClick={() => setExpandedOrderId(expandedOrderId === order.order_id ? null : order.order_id)}
+                  >
                     <div>
-                      <h3 style={{ margin: '0 0 4px', fontSize: '16px' }}>Order #{order.order_id}</h3>
+                      <h3 style={{ margin: '0 0 4px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        Order #{order.order_id}
+                        <button 
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: 0, display: 'flex', alignItems: 'center' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedOrderId(expandedOrderId === order.order_id ? null : order.order_id);
+                          }}
+                          title={expandedOrderId === order.order_id ? "Hide details" : "Show details"}
+                        >
+                          {expandedOrderId === order.order_id ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </h3>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                         Placed on {new Date(order.order_date).toLocaleString()}
                       </div>
@@ -203,7 +222,7 @@ const DistributorOrders = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {order.status === 'EXECUTED' && (
                         <button 
-                          onClick={() => setSelectedOrderId(order.order_id)}
+                          onClick={(e) => { e.stopPropagation(); setSelectedOrderId(order.order_id); }}
                           style={{ 
                             background: '#fff', border: '1px solid var(--primary)', color: 'var(--primary)', 
                             padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, 
@@ -222,7 +241,9 @@ const DistributorOrders = () => {
                     </div>
                   </div>
                   
-                  <div style={{ padding: '0 20px', overflowX: 'auto' }}>
+                  {expandedOrderId === order.order_id && (
+                    <>
+                  <div style={{ padding: '0 20px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
                     <div className="table-responsive">
                       <table className="data-table" style={{ border: 'none', marginBottom: 0, minWidth: '500px' }}>
                         <thead>
@@ -284,7 +305,11 @@ const DistributorOrders = () => {
 
                                     return (
                                       <button 
-                                        onClick={() => setClaimItem({ ...item, order_id: order.order_id })}
+                                        onClick={() => {
+                                          setClaimItem({ ...item, order_id: order.order_id });
+                                          setClaimQty(0);
+                                          setClaimPieces(0);
+                                        }}
                                         style={{ padding: '4px 8px', fontSize: '11px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}
                                       >
                                         File Claim
@@ -333,6 +358,8 @@ const DistributorOrders = () => {
                       </div>
                     </div>
                   )}
+                  </>
+                  )}
 
                 </div>
               );
@@ -377,17 +404,30 @@ const DistributorOrders = () => {
             </p>
             
             <form onSubmit={submitClaim}>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Defect Quantity (Max {claimItem.executed_qty})</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max={claimItem.executed_qty} 
-                  required
-                  value={claimQty}
-                  onChange={e => setClaimQty(parseInt(e.target.value))}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                />
+              <div className="form-group" style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label>Defective Boxes (Max {claimItem.executed_qty})</label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max={claimItem.executed_qty} 
+                    required
+                    value={claimQty}
+                    onChange={e => setClaimQty(parseInt(e.target.value) || 0)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label>Defective Pieces</label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    required
+                    value={claimPieces}
+                    onChange={e => setClaimPieces(parseInt(e.target.value) || 0)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
+                  />
+                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>

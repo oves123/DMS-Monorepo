@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../lib/api';
-import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge } from 'lucide-react';
+import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge, Eye, EyeOff } from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
 
@@ -37,6 +37,8 @@ const AdminDistributors = () => {
   const [editingDist, setEditingDist] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   useEffect(() => {
     fetchDistributors();
@@ -120,6 +122,10 @@ const AdminDistributors = () => {
       formData.append('phone_number', editForm.phone_number);
       formData.append('owner_name', editForm.owner_name || '');
       formData.append('fssai_number', editForm.fssai_number || '');
+      
+      if (editForm.password) {
+        formData.append('password', editForm.password);
+      }
       
       if (editForm.panFile) formData.append('panFile', editForm.panFile);
       if (editForm.aadharFile) formData.append('aadharFile', editForm.aadharFile);
@@ -245,7 +251,22 @@ const AdminDistributors = () => {
             </div>
             <div className="input-group">
               <label>Password *</label>
-              <input type="text" required value={password} onChange={e => setPassword(e.target.value)} />
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showAddPassword ? "text" : "password"} 
+                  required 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  style={{ width: '100%', paddingRight: '40px' }}
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowAddPassword(!showAddPassword)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                >
+                  {showAddPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div className="input-group">
               <label>Owner Name (Optional)</label>
@@ -527,6 +548,25 @@ const AdminDistributors = () => {
                   <div className="input-group">
                     <label>FSSAI Number</label>
                     <input type="text" value={editForm.fssai_number || ''} onChange={(e) => setEditForm({...editForm, fssai_number: e.target.value})} />
+                  </div>
+                  <div className="input-group">
+                    <label>Reset Password (Optional)</label>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type={showEditPassword ? "text" : "password"} 
+                        placeholder="Leave blank to keep current password" 
+                        value={editForm.password || ''} 
+                        onChange={(e) => setEditForm({...editForm, password: e.target.value})} 
+                        style={{ width: '100%', paddingRight: '40px' }}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowEditPassword(!showEditPassword)}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+                      >
+                        {showEditPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="input-group">
                     <label>Address</label>

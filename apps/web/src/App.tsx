@@ -18,6 +18,7 @@ import BulkOrderForm from './pages/distributor/BulkOrderForm';
 import DistributorOrders from './pages/distributor/DistributorOrders';
 import DistributorReports from './pages/distributor/DistributorReports';
 import DistributorClaims from './pages/distributor/DistributorClaims';
+import DistributorProfile from './pages/distributor/DistributorProfile';
 
 import { ToastProvider } from './components/Toast';
 
@@ -49,6 +50,7 @@ function App() {
             <Route path="/distributor/orders" element={<DistributorOrders />} />
             <Route path="/distributor/claims" element={<DistributorClaims />} />
             <Route path="/distributor/reports" element={<DistributorReports />} />
+            <Route path="/distributor/profile" element={<DistributorProfile />} />
           </Route>
         </Routes>
       </Router>

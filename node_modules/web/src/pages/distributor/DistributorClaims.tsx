@@ -40,7 +40,7 @@ const DistributorClaims = () => {
           </div>
         ) : (
           <div className="table-responsive">
-            <table className="data-table">
+            <table className="data-table" style={{ minWidth: '700px' }}>
               <thead>
                 <tr>
                   <th>Claim ID</th>

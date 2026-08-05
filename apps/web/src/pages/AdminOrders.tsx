@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -16,6 +16,7 @@ const AdminOrders = () => {
   
   // State for executing an order
   const [executingOrderId, setExecutingOrderId] = useState<number | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [executionQuantities, setExecutionQuantities] = useState<Record<number, number>>({});
   
   // New States for Discounts and Wallet
@@ -191,9 +192,24 @@ const AdminOrders = () => {
 
               return (
               <div key={order.order_id} style={{ border: '1px solid var(--border-color)', borderRadius: '8px', marginBottom: '20px', padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div 
+                  style={{ display: 'flex', justifyContent: 'space-between', marginBottom: expandedOrderId === order.order_id ? '16px' : '0', cursor: 'pointer', alignItems: 'center' }}
+                  onClick={() => setExpandedOrderId(expandedOrderId === order.order_id ? null : order.order_id)}
+                >
                   <div>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)' }}>Order #{order.order_id}</h3>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Order #{order.order_id}
+                      <button 
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', padding: 0, display: 'flex', alignItems: 'center' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedOrderId(expandedOrderId === order.order_id ? null : order.order_id);
+                        }}
+                        title={expandedOrderId === order.order_id ? "Hide details" : "Show details"}
+                      >
+                        {expandedOrderId === order.order_id ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </h3>
                     <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
                       By: <strong>{order.distributor_name}</strong> ({order.distributor_phone}) <br/>
                       Date: {new Date(order.order_date).toLocaleString()}
@@ -210,6 +226,8 @@ const AdminOrders = () => {
                   </div>
                 </div>
 
+                {expandedOrderId === order.order_id && (
+                  <>
                 <table className="data-table" style={{ marginBottom: '16px' }}>
                   <thead>
                     <tr>
@@ -391,6 +409,8 @@ const AdminOrders = () => {
                       )}
                     </div>
                   </div>
+                )}
+                </>
                 )}
               </div>
             );

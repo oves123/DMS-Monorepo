@@ -2,21 +2,22 @@ const sql = require('mssql');
 
 exports.submitClaim = async (req, res) => {
     try {
-        const { order_id, variant_id, quantity, reason, distributor_id } = req.body;
+        const { order_id, variant_id, quantity, pieces_qty, reason, distributor_id } = req.body;
         const image_binary = req.file ? req.file.buffer : null;
 
         const request = new sql.Request();
         request.input('distributor_id', sql.Int, distributor_id);
         request.input('order_id', sql.Int, order_id || null);
         request.input('variant_id', sql.Int, variant_id);
-        request.input('quantity', sql.Int, parseInt(quantity));
+        request.input('quantity', sql.Int, parseInt(quantity) || 0);
+        request.input('pieces_qty', sql.Int, parseInt(pieces_qty) || 0);
         request.input('reason', sql.VarChar, reason);
         request.input('image_binary', sql.VarBinary, image_binary);
         request.input('status', sql.VarChar, 'PENDING');
 
         await request.query(`
-            INSERT INTO Claims (distributor_id, order_id, variant_id, quantity, reason, image_binary, status)
-            VALUES (@distributor_id, @order_id, @variant_id, @quantity, @reason, @image_binary, @status)
+            INSERT INTO Claims (distributor_id, order_id, variant_id, quantity, pieces_qty, reason, image_binary, status)
+            VALUES (@distributor_id, @order_id, @variant_id, @quantity, @pieces_qty, @reason, @image_binary, @status)
         `);
 
         res.status(201).json({ message: 'Claim submitted successfully' });
@@ -49,10 +50,10 @@ exports.getClaims = async (req, res) => {
     try {
         const result = await new sql.Request().query(`
             SELECT c.claim_id, c.distributor_id, u.firm_name as distributor_name, 
-                   c.order_id, c.variant_id, p.name as product_name, v.pack_size,
-                   c.quantity, c.reason, c.status, c.created_at,
+                   c.order_id, c.variant_id, p.name as product_name, v.pack_size, v.pieces_per_box,
+                   c.quantity, c.pieces_qty, c.reason, c.status, c.created_at,
                    CASE WHEN c.image_binary IS NOT NULL THEN 1 ELSE 0 END as has_image,
-                   (c.quantity * v.distributor_rate) as claim_amount
+                   (c.quantity * v.distributor_rate) + (c.pieces_qty * (v.distributor_rate / ISNULL(NULLIF(v.pieces_per_box, 0), 1))) as claim_amount
             FROM Claims c
             JOIN Users u ON c.distributor_id = u.user_id
             JOIN ProductVariants v ON c.variant_id = v.variant_id
@@ -137,10 +138,10 @@ exports.getDistributorClaims = async (req, res) => {
         const distributor_id = req.params.distributor_id;
         const result = await new sql.Request().query(`
             SELECT c.claim_id, c.distributor_id, c.order_id, c.variant_id, 
-                   p.name as product_name, v.pack_size,
-                   c.quantity, c.reason, c.status, c.created_at,
+                   p.name as product_name, v.pack_size, v.pieces_per_box,
+                   c.quantity, c.pieces_qty, c.reason, c.status, c.created_at,
                    CASE WHEN c.image_binary IS NOT NULL THEN 1 ELSE 0 END as has_image,
-                   (c.quantity * v.distributor_rate) as claim_amount
+                   (c.quantity * v.distributor_rate) + (c.pieces_qty * (v.distributor_rate / ISNULL(NULLIF(v.pieces_per_box, 0), 1))) as claim_amount
             FROM Claims c
             JOIN ProductVariants v ON c.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id

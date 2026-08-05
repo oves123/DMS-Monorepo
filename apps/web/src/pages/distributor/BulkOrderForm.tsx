@@ -212,7 +212,7 @@ const BulkOrderForm = () => {
         </div>
       </div>
 
-      <div className="data-card" style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', border: '2px solid #e2e8f0', borderRadius: '12px' }}>
+      <div className="data-card" style={{ padding: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)', border: '2px solid #e2e8f0', borderRadius: '12px', maxWidth: '100%' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
           <thead>
             <tr>
@@ -382,7 +382,8 @@ const BulkOrderForm = () => {
                   Your order is empty. Please select some items.
                 </div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' }}>
                   <thead>
                     <tr>
                       <th style={{ padding: '12px', borderBottom: '2px solid #cbd5e1', color: '#475569', fontSize: '14px' }}>Product</th>
@@ -427,6 +428,7 @@ const BulkOrderForm = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
 

@@ -29,7 +29,7 @@ const AdminProducts = () => {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const [addingVariantTo, setAddingVariantTo] = useState<any>(null);
-  const [newVariantForm, setNewVariantForm] = useState({ pack_size: '', distributor_rate: '', retailer_rate: '', mrp: '' });
+  const [newVariantForm, setNewVariantForm] = useState({ pack_size: '', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' });
   const [isAddingVariant, setIsAddingVariant] = useState(false);
 
   useEffect(() => {
@@ -114,6 +114,7 @@ const AdminProducts = () => {
         category_name: editingVariant.category_name,
         hsn_code: editingVariant.hsn_code,
         pack_size: editForm.pack_size,
+        pieces_per_box: editForm.pieces_per_box ? parseInt(editForm.pieces_per_box) : null,
         distributor_rate: parseFloat(editForm.distributor_rate),
         retailer_rate: parseFloat(editForm.retailer_rate)
       });
@@ -140,13 +141,14 @@ const AdminProducts = () => {
         // I will add a new endpoint in the backend for POST /api/products/:id/variants
         await api.post(`/api/products/${addingVariantTo.product_id}/variants`, {
             pack_size: newVariantForm.pack_size,
+            pieces_per_box: newVariantForm.pieces_per_box ? parseInt(newVariantForm.pieces_per_box) : null,
             distributor_rate: parseFloat(newVariantForm.distributor_rate),
             retailer_rate: parseFloat(newVariantForm.retailer_rate),
             mrp: parseFloat(newVariantForm.mrp) || 0
         });
         showToast('Variant added successfully!', 'success');
         setAddingVariantTo(null);
-        setNewVariantForm({ pack_size: '', distributor_rate: '', retailer_rate: '', mrp: '' });
+        setNewVariantForm({ pack_size: '', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' });
         fetchProducts();
         setExpandedProducts(prev => ({ ...prev, [addingVariantTo.product_id]: true }));
     } catch (err) {
@@ -329,6 +331,7 @@ const AdminProducts = () => {
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>CATEGORY</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>HSN CODE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PCS/BOX</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>D RATE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>R RATE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'right' }}>ACTIONS</th>
@@ -345,7 +348,7 @@ const AdminProducts = () => {
                             style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
                             onClick={() => toggleExpand(product.product_id)}
                           >
-                            <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                            <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
                                   {isExpanded ? '▼' : '▶'}
@@ -388,6 +391,7 @@ const AdminProducts = () => {
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.category_name || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.hsn_code || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pack_size}</td>
+                              <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pieces_per_box}</td>
                               <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>₹{v.distributor_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>₹{v.retailer_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -475,8 +479,12 @@ const AdminProducts = () => {
             <form onSubmit={handleUpdate}>
               <div className="form-grid">
                 <div className="input-group">
-                  <label>Pcs in Box / Pack Size (e.g., 5Rs (180 PCS))</label>
+                  <label>Pack Size (e.g., 5Rs (180 PCS))</label>
                   <input type="text" value={editForm.pack_size || ''} onChange={(e) => setEditForm({...editForm, pack_size: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>Pieces Per Box (Auto-extracted if blank)</label>
+                  <input type="number" min="1" value={editForm.pieces_per_box || ''} onChange={(e) => setEditForm({...editForm, pieces_per_box: e.target.value})} placeholder="e.g. 180" />
                 </div>
                 <div className="input-group">
                   <label>Distributor Rate (₹)</label>
@@ -512,6 +520,10 @@ const AdminProducts = () => {
                 <div className="input-group">
                   <label>Pack Size (e.g. 5Rs (180 PCS))</label>
                   <input type="text" value={newVariantForm.pack_size} onChange={(e) => setNewVariantForm({...newVariantForm, pack_size: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>Pieces Per Box (Auto-extracted if blank)</label>
+                  <input type="number" min="1" value={newVariantForm.pieces_per_box} onChange={(e) => setNewVariantForm({...newVariantForm, pieces_per_box: e.target.value})} placeholder="e.g. 180" />
                 </div>
                 <div className="input-group">
                   <label>Distributor Rate (₹)</label>

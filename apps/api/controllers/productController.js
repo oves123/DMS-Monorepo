@@ -1,5 +1,14 @@
 const sql = require('mssql');
 
+function parsePiecesFromPackSize(packSize) {
+    if (!packSize) return 1;
+    const match = packSize.match(/(?:(?:\(|\s|^))(\d+)\s*(?:PCS|pcs|pieces)(?:\)|\s|$)/i);
+    if (match && match[1]) return parseInt(match[1]);
+    const genericMatch = packSize.match(/(\d+)\s*PCS/i);
+    if (genericMatch && genericMatch[1]) return parseInt(genericMatch[1]);
+    return 1;
+}
+
 // GET /api/categories
 exports.getCategories = async (req, res) => {
     try {
@@ -43,7 +52,7 @@ exports.getProducts = async (req, res) => {
             SELECT 
                 p.product_id, p.name as product_name, p.hsn_code, p.gst_percent,
                 c.category_id, c.name as category_name,
-                v.variant_id, v.pack_size, v.distributor_rate, v.retailer_rate, v.mrp
+                v.variant_id, v.pack_size, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp
             FROM Products p
             LEFT JOIN Categories c ON p.category_id = c.category_id
             LEFT JOIN ProductVariants v ON p.product_id = v.product_id
@@ -68,6 +77,7 @@ exports.getProducts = async (req, res) => {
                 productsMap[row.product_id].variants.push({
                     variant_id: row.variant_id,
                     pack_size: row.pack_size,
+                    pieces_per_box: row.pieces_per_box,
                     distributor_rate: row.distributor_rate,
                     retailer_rate: row.retailer_rate,
                     mrp: row.mrp
@@ -121,13 +131,14 @@ exports.addProduct = async (req, res) => {
                 const varReq = new sql.Request(transaction);
                 varReq.input('product_id', sql.Int, product_id);
                 varReq.input('pack_size', sql.VarChar, v.pack_size);
+                varReq.input('pieces_per_box', sql.Int, v.pieces_per_box || parsePiecesFromPackSize(v.pack_size));
                 varReq.input('distributor_rate', sql.Decimal(10,2), v.distributor_rate);
                 varReq.input('retailer_rate', sql.Decimal(10,2), v.retailer_rate);
                 varReq.input('mrp', sql.Decimal(10,2), v.mrp);
 
                 await varReq.query(`
-                    INSERT INTO ProductVariants (product_id, pack_size, distributor_rate, retailer_rate, mrp)
-                    VALUES (@product_id, @pack_size, @distributor_rate, @retailer_rate, @mrp)
+                    INSERT INTO ProductVariants (product_id, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
+                    VALUES (@product_id, @pack_size, @pieces_per_box, @distributor_rate, @retailer_rate, @mrp)
                 `);
             }
         }
@@ -147,7 +158,7 @@ exports.updateProductVariant = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const variant_id = req.params.variant_id;
-        const { name, category_name, hsn_code, pack_size, distributor_rate, retailer_rate } = req.body;
+        const { name, category_name, hsn_code, pack_size, pieces_per_box, distributor_rate, retailer_rate } = req.body;
 
         await transaction.begin();
         const request = new sql.Request(transaction);
@@ -192,12 +203,13 @@ exports.updateProductVariant = async (req, res) => {
 
         // 4. Update Variant details
         request.input('p_size', sql.VarChar, pack_size);
+        request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_r', sql.Decimal(10,2), distributor_rate);
         request.input('ret_r', sql.Decimal(10,2), retailer_rate);
         
         await request.query(`
             UPDATE ProductVariants
-            SET pack_size = @p_size, distributor_rate = @distributor_r, retailer_rate = @ret_r
+            SET pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r
             WHERE variant_id = @var_id
         `);
 
@@ -265,6 +277,7 @@ exports.bulkUploadProducts = async (req, res) => {
                 const product_name = row['Product Name'] || row['product_name'] || row['name'];
                 const hsn_code = row['HSN Code'] || row['hsn_code'] || null;
                 const pack_size = row['Pack Size'] || row['pack_size'];
+                const pieces_per_box = row['Pieces Per Box'] || row['pieces_per_box'] || parsePiecesFromPackSize(pack_size);
                 const distributor_rate = row['Distributor Rate'] || row['distributor_rate'];
                 const retailer_rate = row['Retailer Rate'] || row['retailer_rate'];
                 const mrp = row['MRP'] || row['mrp'] || 0;
@@ -318,9 +331,10 @@ exports.bulkUploadProducts = async (req, res) => {
                     vReq.input('d_rate', sql.Decimal(10,2), distributor_rate);
                     vReq.input('r_rate', sql.Decimal(10,2), retailer_rate);
                     vReq.input('mrp_val', sql.Decimal(10,2), mrp);
+                    vReq.input('pieces_pb', sql.Int, pieces_per_box);
                     await vReq.query(`
-                        INSERT INTO ProductVariants (product_id, pack_size, distributor_rate, retailer_rate, mrp)
-                        VALUES (@p_id, @p_size, @d_rate, @r_rate, @mrp_val)
+                        INSERT INTO ProductVariants (product_id, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
+                        VALUES (@p_id, @p_size, @pieces_pb, @d_rate, @r_rate, @mrp_val)
                     `);
                     successCount++;
                 } else {
@@ -345,19 +359,20 @@ exports.bulkUploadProducts = async (req, res) => {
 exports.addProductVariant = async (req, res) => {
     try {
         const { product_id } = req.params;
-        const { pack_size, distributor_rate, retailer_rate, mrp } = req.body;
+        const { pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp } = req.body;
 
         const request = new sql.Request();
         request.input('product_id', sql.Int, product_id);
         request.input('pack_size', sql.VarChar, pack_size);
+        request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_rate', sql.Decimal(10,2), distributor_rate || 0);
         request.input('retailer_rate', sql.Decimal(10,2), retailer_rate || 0);
         request.input('mrp', sql.Decimal(10,2), mrp || 0);
 
         const result = await request.query(`
-            INSERT INTO ProductVariants (product_id, pack_size, distributor_rate, retailer_rate, mrp)
+            INSERT INTO ProductVariants (product_id, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
             OUTPUT INSERTED.*
-            VALUES (@product_id, @pack_size, @distributor_rate, @retailer_rate, @mrp)
+            VALUES (@product_id, @pack_size, @pieces_per_box, @distributor_rate, @retailer_rate, @mrp)
         `);
 
         res.status(201).json(result.recordset[0]);

@@ -21,6 +21,32 @@ exports.getDistributors = async (req, res) => {
     }
 };
 
+// GET /api/distributors/:id
+exports.getDistributorById = async (req, res) => {
+    try {
+        const user_id = req.params.id;
+        const request = new sql.Request();
+        request.input('user_id', sql.Int, user_id);
+        const result = await request.query(`
+            SELECT user_id, firm_name, gst_number, address, phone_number, created_at,
+                   owner_name, fssai_number, wallet_balance,
+                   CASE WHEN pan_card IS NOT NULL THEN 1 ELSE 0 END as has_pan,
+                   CASE WHEN aadhar_card IS NOT NULL THEN 1 ELSE 0 END as has_aadhar,
+                   CASE WHEN photo IS NOT NULL THEN 1 ELSE 0 END as has_photo
+            FROM Users 
+            WHERE user_id = @user_id AND (role = 'DISTRIBUTOR' OR role = 'ND')
+        `);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'Distributor not found' });
+        }
+        res.json(result.recordset[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+};
+
 // GET /api/distributors/:id/wallet
 exports.getWalletBalance = async (req, res) => {
     try {
@@ -61,7 +87,7 @@ exports.getFile = async (req, res) => {
         const fileData = result.recordset[0].fileData;
         
         // Basic response
-        res.set('Content-Type', 'application/octet-stream');
+        res.set('Content-Type', 'image/jpeg');
         res.send(fileData);
     } catch (err) {
         console.error(err);
@@ -179,7 +205,7 @@ exports.bulkUploadDistributors = async (req, res) => {
 exports.updateDistributor = async (req, res) => {
     try {
         const user_id = req.params.id;
-        const { firm_name, gst_number, address, phone_number, owner_name, fssai_number } = req.body;
+        const { firm_name, gst_number, address, phone_number, owner_name, fssai_number, password } = req.body;
 
         const request = new sql.Request();
         request.input('user_id', sql.Int, user_id);
@@ -191,6 +217,13 @@ exports.updateDistributor = async (req, res) => {
         request.input('fssai_number', sql.VarChar, fssai_number || null);
 
         let updateFields = `firm_name = @firm_name, gst_number = @gst_number, address = @address, phone_number = @phone_number, owner_name = @owner_name, fssai_number = @fssai_number`;
+
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+            request.input('password_hash', sql.VarChar, hashedPassword);
+            updateFields += `, password_hash = @password_hash`;
+        }
 
         if (req.files && req.files.panFile) {
             request.input('pan_card', sql.VarBinary, req.files.panFile[0].buffer);

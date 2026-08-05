@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import '../styles/AdminLayout.css'; // Reusing the same layout styles
-import { LayoutDashboard, FileSpreadsheet, Clock, BarChart2, Menu, X, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, FileSpreadsheet, Clock, BarChart2, Menu, X, AlertTriangle, User, ChevronDown } from 'lucide-react';
 
 const DistributorLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -69,11 +70,49 @@ const DistributorLayout = () => {
               <Menu size={24} />
             </button>
           </div>
-          <div className="user-profile" style={{ display: 'flex', alignItems: 'center' }}>
-            <span className="user-name">{JSON.parse(localStorage.getItem('dms_user') || '{}').firm_name || 'Distributor'}</span>
-            <button className="logout-header-btn" onClick={handleLogout}>
-              Logout
+          <div className="user-profile" style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px' }}
+            >
+              <span className="user-name" style={{ fontWeight: 500, color: '#334155' }}>
+                {JSON.parse(localStorage.getItem('dms_user') || '{}').firm_name || 'Distributor'}
+              </span>
+              <ChevronDown size={16} color="#64748b" />
             </button>
+
+            {isProfileMenuOpen && (
+              <>
+                <div 
+                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90 }} 
+                  onClick={() => setIsProfileMenuOpen(false)} 
+                />
+                <div style={{ position: 'absolute', top: '100%', right: 0, width: '180px', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: '1px solid #e2e8f0', zIndex: 100, marginTop: '8px', overflow: 'hidden' }}>
+                  <button 
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      navigate('/distributor/profile');
+                    }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', background: 'none', border: 'none', borderBottom: '1px solid #e2e8f0', cursor: 'pointer', color: '#334155', fontSize: '14px', textAlign: 'left' }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <User size={16} /> Profile
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '14px', textAlign: 'left' }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
 

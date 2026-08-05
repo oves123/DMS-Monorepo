@@ -54,6 +54,37 @@ const loginUser = async (req, res) => {
     }
 };
 
+// @desc    Reset Password directly (Logged in user)
+// @route   PUT /api/auth/reset-password
+const resetPassword = async (req, res) => {
+    try {
+        const { user_id, new_password } = req.body;
+
+        if (!user_id || !new_password) {
+            return res.status(400).json({ message: 'Please provide user id and new password' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(new_password, salt);
+
+        const request = new sql.Request();
+        request.input('user_id', sql.Int, user_id);
+        request.input('password_hash', sql.VarChar, hashedPassword);
+        
+        await request.query(`
+            UPDATE Users 
+            SET password_hash = @password_hash 
+            WHERE user_id = @user_id
+        `);
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        console.error('Reset Password Error:', error);
+        res.status(500).json({ message: 'Server error during password reset' });
+    }
+};
+
 module.exports = {
-    loginUser
+    loginUser,
+    resetPassword
 };

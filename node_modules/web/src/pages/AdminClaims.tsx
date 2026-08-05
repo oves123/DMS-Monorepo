@@ -73,7 +73,8 @@ const AdminClaims = () => {
       'Order ID': c.order_id,
       'Distributor': c.distributor_name,
       'Product': c.product_name,
-      'Quantity': c.quantity,
+      'Boxes': c.quantity,
+      'Pieces': c.pieces_qty,
       'Reason': c.reason,
       'Amount': c.claim_amount,
       'Status': c.status,
@@ -205,7 +206,11 @@ const AdminClaims = () => {
                       <span style={{ color: '#64748b', fontSize: '13px' }}>Order #{claim.order_id}</span>
                     </td>
                     <td>{claim.product_name} - {claim.pack_size}</td>
-                    <td style={{ fontWeight: 'bold' }}>{claim.quantity}</td>
+                    <td style={{ fontWeight: 'bold' }}>
+                      {claim.quantity > 0 && <div>{claim.quantity} Box{claim.quantity > 1 ? 'es' : ''}</div>}
+                      {claim.pieces_qty > 0 && <div style={{ color: '#64748b', fontSize: '13px' }}>{claim.pieces_qty} Piece{claim.pieces_qty > 1 ? 's' : ''}</div>}
+                      {claim.quantity === 0 && claim.pieces_qty === 0 && '0'}
+                    </td>
                     <td>
                       {claim.reason}
                       {claim.has_image === 1 && (
