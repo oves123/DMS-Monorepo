@@ -100,6 +100,18 @@ const AdminProducts = () => {
     });
   };
 
+  const handleDownloadTemplate = () => {
+    const templateHeaders = "Category,Product Name,HSN Code,Pack Size,Pieces Per Box,Distributor Rate,Retailer Rate,MRP\n";
+    const sampleRow = "NAMKEEN,Sample Product - 5Rs,21069099,5Rs,240,925.17,996,5\n";
+    const blob = new Blob([templateHeaders + sampleRow], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'Product_Upload_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const openEditModal = (variant: any) => {
     setEditingVariant(variant);
     setEditForm({ ...variant });
@@ -211,6 +223,14 @@ const AdminProducts = () => {
       <div className="page-header">
         <h2 className="page-title">Products Catalogue</h2>
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="secondary-btn" 
+            onClick={handleDownloadTemplate}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#f8fafc' }}
+          >
+            <Upload size={18} />
+            Download Template
+          </button>
           <input 
             type="file" 
             accept=".csv" 

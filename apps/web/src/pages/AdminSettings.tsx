@@ -28,7 +28,7 @@ const AdminSettings = () => {
       if (response.data) {
         setSettings(response.data);
       }
-      setQrPreview(`${import.meta.env.VITE_API_URL}/api/settings/company/qr?` + new Date().getTime());
+      setQrPreview(`${import.meta.env.VITE_API_URL || ''}/api/settings/company/qr?` + new Date().getTime());
     } catch (err) {
       console.error('Failed to fetch settings');
     } finally {

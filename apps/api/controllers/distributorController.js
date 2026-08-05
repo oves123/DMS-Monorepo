@@ -150,7 +150,13 @@ exports.bulkUploadDistributors = async (req, res) => {
         let skipCount = 0;
 
         for (const dist of distributors) {
-            const { firm_name, gst_number, address, phone_number, password, owner_name, fssai_number } = dist;
+            const firm_name = dist['Firm Name'] || dist.firm_name;
+            const phone_number = dist['Mobile No'] || dist.phone_number;
+            const password = dist['Password'] || dist.password || phone_number;
+            const gst_number = dist['GST no'] || dist['GST No.'] || dist.gst_number;
+            const address = dist['Address'] || dist.address;
+            const owner_name = dist['Owner Name'] || dist.owner_name;
+            const fssai_number = dist['FSSAI Number'] || dist.fssai_number;
             
             if (!firm_name || !phone_number || !password) {
                 skipCount++;

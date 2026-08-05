@@ -64,7 +64,7 @@ const DistributorClaims = () => {
                       {claim.has_image === 1 && (
                         <div style={{ marginTop: '8px' }}>
                           <a 
-                            href={`${import.meta.env.VITE_API_URL}/api/claims/${claim.claim_id}/image`} 
+                            href={`${import.meta.env.VITE_API_URL || ''}/api/claims/${claim.claim_id}/image`} 
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '4px' }}

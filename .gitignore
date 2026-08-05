@@ -5,3 +5,8 @@ build/
 .env.*
 !.env.example
 .DS_Store
+
+# Extra ignores
+.vite*
+etc files/
+apps/web/.vite_new_cache_2

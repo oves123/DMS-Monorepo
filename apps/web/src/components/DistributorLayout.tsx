@@ -22,6 +22,7 @@ const DistributorLayout = () => {
     { path: '/distributor/orders', name: 'My Orders', icon: <Clock size={20} /> },
     { path: '/distributor/claims', name: 'My Claims', icon: <AlertTriangle size={20} /> },
     { path: '/distributor/reports', name: 'My Reports', icon: <BarChart2 size={20} /> },
+    { path: '/distributor/ledger', name: 'My Ledger', icon: <FileSpreadsheet size={20} /> },
   ];
 
   return (

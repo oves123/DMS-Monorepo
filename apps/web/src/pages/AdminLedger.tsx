@@ -144,6 +144,9 @@ const AdminLedger = () => {
                     <th>Subtotal</th>
                     <th>GST (18%)</th>
                     <th>Grand Total</th>
+                    <th>Paid</th>
+                    <th>Pending</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -162,10 +165,21 @@ const AdminLedger = () => {
                       <td>₹{inv.subtotal}</td>
                       <td>₹{(inv.cgst_amount + inv.sgst_amount).toFixed(2)}</td>
                       <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{inv.grand_total}</td>
+                      <td style={{ color: '#2563eb' }}>₹{inv.paid_amount || 0}</td>
+                      <td style={{ color: '#dc2626', fontWeight: 500 }}>₹{(inv.grand_total - (inv.paid_amount || 0)).toFixed(2)}</td>
+                      <td>
+                        <span style={{
+                          padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600,
+                          backgroundColor: inv.payment_status === 'PAID' ? '#dcfce7' : inv.payment_status === 'PARTIAL' ? '#fef08a' : '#fee2e2',
+                          color: inv.payment_status === 'PAID' ? '#166534' : inv.payment_status === 'PARTIAL' ? '#854d0e' : '#991b1b'
+                        }}>
+                          {inv.payment_status || 'UNPAID'}
+                        </span>
+                      </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                         No invoices match your filters.
                       </td>
                     </tr>

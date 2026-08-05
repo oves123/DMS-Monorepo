@@ -19,6 +19,7 @@ import DistributorOrders from './pages/distributor/DistributorOrders';
 import DistributorReports from './pages/distributor/DistributorReports';
 import DistributorClaims from './pages/distributor/DistributorClaims';
 import DistributorProfile from './pages/distributor/DistributorProfile';
+import DistributorLedger from './pages/distributor/DistributorLedger';
 
 import { ToastProvider } from './components/Toast';
 
@@ -50,6 +51,7 @@ function App() {
             <Route path="/distributor/orders" element={<DistributorOrders />} />
             <Route path="/distributor/claims" element={<DistributorClaims />} />
             <Route path="/distributor/reports" element={<DistributorReports />} />
+            <Route path="/distributor/ledger" element={<DistributorLedger />} />
             <Route path="/distributor/profile" element={<DistributorProfile />} />
           </Route>
         </Routes>

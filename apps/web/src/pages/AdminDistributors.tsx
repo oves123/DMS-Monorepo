@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../lib/api';
-import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge, Eye, EyeOff } from 'lucide-react';
+import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge, Eye, EyeOff, BookOpen } from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
+import DistributorLedgerModal from '../components/DistributorLedgerModal';
 
 const AdminDistributors = () => {
   const [distributors, setDistributors] = useState<any[]>([]);
@@ -39,6 +40,9 @@ const AdminDistributors = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showAddPassword, setShowAddPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
+  
+  // Ledger Modal State
+  const [ledgerDistributor, setLedgerDistributor] = useState<{id: number, name: string} | null>(null);
 
   useEffect(() => {
     fetchDistributors();
@@ -171,6 +175,18 @@ const AdminDistributors = () => {
     });
   };
 
+  const handleDownloadTemplate = () => {
+    const templateHeaders = "Firm Name,Owner Name,Mobile No,Password,Address,GST no,Pan No,Aadhar No\n";
+    const sampleRow = "ALI TRADERS,MAZHAR ZAKARIYA MOMIN,9326242488,securepass123,H. No. 1071/1 Panjra Pol,27AIIPM1178M1ZS,AIIPM1178M,3199 8681 2103\n";
+    const blob = new Blob([templateHeaders + sampleRow], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'Distributor_Upload_Template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Filter and Pagination Logic
   const filteredDistributors = useMemo(() => distributors.filter(d => {
     const matchesSearch = d.firm_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -205,6 +221,14 @@ const AdminDistributors = () => {
       <div className="page-header">
         <h2 className="page-title">Distributors</h2>
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="secondary-btn" 
+            onClick={handleDownloadTemplate}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#f8fafc' }}
+          >
+            <Upload size={18} />
+            Download Template
+          </button>
           <input 
             type="file" 
             accept=".csv" 
@@ -411,6 +435,18 @@ const AdminDistributors = () => {
                         <td>{new Date(d.created_at).toLocaleDateString()}</td>
                         <td style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button 
+                            onClick={() => setLedgerDistributor({ id: d.user_id, name: d.firm_name })}
+                            title="View Ledger"
+                            style={{ 
+                              background: '#f0fdf4', border: 'none', color: '#16a34a', cursor: 'pointer', padding: '6px',
+                              borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
+                          >
+                            <BookOpen size={16} />
+                          </button>
+                          <button 
                             onClick={() => openEditModal(d)}
                             title="Edit Distributor"
                             style={{ 
@@ -588,7 +624,7 @@ const AdminDistributors = () => {
               </form>
             </div>
             
-            <div style={{ padding: '16px 32px 24px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+            <div style={{ padding: '16px 32px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button type="button" className="secondary-btn" onClick={() => setEditingDist(null)}>Cancel</button>
               <button type="submit" form="edit-distributor-form" className="primary-btn" disabled={isUpdating}>
                 {isUpdating ? 'Saving...' : 'Save Changes'}
@@ -596,6 +632,14 @@ const AdminDistributors = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {ledgerDistributor && (
+        <DistributorLedgerModal 
+          distributorId={ledgerDistributor.id} 
+          firmName={ledgerDistributor.name}
+          onClose={() => setLedgerDistributor(null)} 
+        />
       )}
     </div>
   );
