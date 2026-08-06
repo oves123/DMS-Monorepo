@@ -184,11 +184,18 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                   <p style={{ margin: '0 0 2px 0' }}>2. Goods Check Before Received!</p>
                   <p style={{ margin: '0 0 2px 0' }}>3. Subject to jurisdiction : Palghar</p>
                 </div>
-                <div style={{ width: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ 
-                    width: '60px', 
-                    height: '60px'
-                  }}></div>
+                    width: '100px', 
+                    height: '100px'
+                  }}>
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'undefined' ? import.meta.env.VITE_API_URL : ''}/api/settings/company/qr?${new Date().getTime()}`} 
+                      alt="Payment QR" 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  </div>
                 </div>
               </div>
               
