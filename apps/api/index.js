@@ -7,6 +7,9 @@ const { connectDB } = require('./config/db');
 
 const app = express();
 
+// Trust reverse proxy (Nginx, Cloudflare, etc.) so rate limiter uses real client IP
+app.set('trust proxy', 'loopback');
+
 // Middleware
 // Restrict CORS to specific origins
 const corsOptions = {
