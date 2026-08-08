@@ -292,6 +292,7 @@ const AdminReports = () => {
               <AlertTriangle color="#ef4444" /> Low Inventory Alerts
             </h3>
             <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -330,6 +331,7 @@ const AdminReports = () => {
                   )}
                 </tbody>
               </table>
+            </div>
             </div>
           </div>
         )}

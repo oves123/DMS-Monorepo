@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { getInventory, updateStock, updateStockInline } = require('../controllers/inventoryController');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
 
-router.get('/', getInventory);
-router.post('/update', updateStock);
-router.put('/inline/:variant_id', updateStockInline);
+router.get('/', protect, adminOnly, getInventory);
+router.post('/update', protect, adminOnly, updateStock);
+router.put('/inline/:variant_id', protect, adminOnly, updateStockInline);
 
 module.exports = router;

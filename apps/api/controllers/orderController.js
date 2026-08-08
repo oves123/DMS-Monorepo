@@ -8,7 +8,7 @@ exports.getAdminOrders = async (req, res) => {
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 u.firm_name as distributor_name, u.phone_number as distributor_phone, u.wallet_balance,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, v.variant_id,
+                v.pack_size, p.name as product_name, p.hsn_code, p.uom, c.name as category_name, v.variant_id,
                 inv.current_stock_qty,
                 i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
@@ -16,6 +16,7 @@ exports.getAdminOrders = async (req, res) => {
             JOIN OrderItems oi ON o.order_id = oi.order_id
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
+            LEFT JOIN Categories c ON p.category_id = c.category_id
             LEFT JOIN Inventory inv ON v.variant_id = inv.variant_id
             LEFT JOIN Invoices i ON o.order_id = i.order_id
             ORDER BY o.order_date DESC
@@ -44,6 +45,9 @@ exports.getAdminOrders = async (req, res) => {
                 order_item_id: row.order_item_id,
                 variant_id: row.variant_id,
                 product_name: row.product_name,
+                hsn_code: row.hsn_code,
+                uom: row.uom,
+                category_name: row.category_name,
                 pack_size: row.pack_size,
                 requested_qty: row.requested_qty,
                 executed_qty: row.executed_qty,
@@ -116,10 +120,19 @@ exports.executeOrder = async (req, res) => {
             UPDATE Orders SET status = 'EXECUTED', execution_date = GETDATE() WHERE order_id = @order_id
         `);
 
+        // Fetch GST Rates
+        const gstReq = new sql.Request(transaction);
+        const gstRes = await gstReq.query(`SELECT cgst_rate, sgst_rate FROM CompanySettings WHERE setting_id = 1`);
+        let cgst_rate = 2.50;
+        let sgst_rate = 2.50;
+        if (gstRes.recordset.length > 0) {
+            if (gstRes.recordset[0].cgst_rate != null) cgst_rate = parseFloat(gstRes.recordset[0].cgst_rate);
+            if (gstRes.recordset[0].sgst_rate != null) sgst_rate = parseFloat(gstRes.recordset[0].sgst_rate);
+        }
+
         // 4. Generate Invoice
-        // Simple logic for taxes (assuming 18% total, 9% CGST, 9% SGST for demo)
-        const cgst = subtotal * 0.09;
-        const sgst = subtotal * 0.09;
+        const cgst = subtotal * (cgst_rate / 100);
+        const sgst = subtotal * (sgst_rate / 100);
         let grand_total = subtotal + cgst + sgst;
         
         // Apply discounts
@@ -226,12 +239,13 @@ exports.getDistributorOrders = async (req, res) => {
             SELECT 
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, v.variant_id,
+                v.pack_size, p.name as product_name, p.hsn_code, p.uom, c.name as category_name, v.variant_id,
                 i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
             JOIN OrderItems oi ON o.order_id = oi.order_id
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
+            LEFT JOIN Categories c ON p.category_id = c.category_id
             LEFT JOIN Invoices i ON o.order_id = i.order_id
             WHERE o.distributor_id = @user_id
             ORDER BY o.order_date DESC
@@ -257,6 +271,9 @@ exports.getDistributorOrders = async (req, res) => {
                 order_item_id: row.order_item_id,
                 variant_id: row.variant_id,
                 product_name: row.product_name,
+                hsn_code: row.hsn_code,
+                uom: row.uom,
+                category_name: row.category_name,
                 pack_size: row.pack_size,
                 requested_qty: row.requested_qty,
                 executed_qty: row.executed_qty,

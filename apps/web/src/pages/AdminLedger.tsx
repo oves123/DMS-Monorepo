@@ -135,6 +135,7 @@ const AdminLedger = () => {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
+              <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -142,7 +143,8 @@ const AdminLedger = () => {
                     <th>Date</th>
                     <th>Distributor Firm</th>
                     <th>Subtotal</th>
-                    <th>GST (18%)</th>
+                    <th>CGST</th>
+                    <th>SGST</th>
                     <th>Grand Total</th>
                     <th>Paid</th>
                     <th>Pending</th>
@@ -163,7 +165,8 @@ const AdminLedger = () => {
                       <td>{new Date(inv.created_at).toLocaleDateString()}</td>
                       <td style={{ fontWeight: 500 }}>{inv.firm_name}</td>
                       <td>₹{inv.subtotal}</td>
-                      <td>₹{(inv.cgst_amount + inv.sgst_amount).toFixed(2)}</td>
+                      <td>₹{(inv.cgst_amount || 0).toFixed(2)}</td>
+                      <td>₹{(inv.sgst_amount || 0).toFixed(2)}</td>
                       <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{inv.grand_total}</td>
                       <td style={{ color: '#2563eb' }}>₹{inv.paid_amount || 0}</td>
                       <td style={{ color: '#dc2626', fontWeight: 500 }}>₹{(inv.grand_total - (inv.paid_amount || 0)).toFixed(2)}</td>
@@ -186,6 +189,7 @@ const AdminLedger = () => {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Pagination */}

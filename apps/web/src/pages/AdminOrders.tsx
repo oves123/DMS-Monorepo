@@ -228,6 +228,7 @@ const AdminOrders = () => {
 
                 {expandedOrderId === order.order_id && (
                   <>
+              <div className="table-responsive">
                 <table className="data-table" style={{ marginBottom: '16px' }}>
                   <thead>
                     <tr>
@@ -299,6 +300,7 @@ const AdminOrders = () => {
                     </tr>
                   </tfoot>
                 </table>
+              </div>
 
                 {order.status === 'EXECUTED' && (
                   <div style={{ marginTop: '16px', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>

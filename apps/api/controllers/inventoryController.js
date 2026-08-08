@@ -10,7 +10,7 @@ exports.getInventory = async (req, res) => {
                 c.name AS category_name,
                 v.pack_size,
                 ISNULL(i.current_stock_qty, 0) AS current_stock,
-                ISNULL(i.low_stock_threshold, 50) AS low_stock_threshold
+                ISNULL(i.low_stock_threshold, 5) AS low_stock_threshold
             FROM ProductVariants v
             INNER JOIN Products p ON v.product_id = p.product_id
             LEFT JOIN Categories c ON p.category_id = c.category_id
@@ -89,7 +89,7 @@ exports.updateStockInline = async (req, res) => {
         } else {
             // Insert
             const stockVal = current_stock !== undefined ? parseInt(current_stock) : 0;
-            const thresholdVal = low_stock_threshold !== undefined ? parseInt(low_stock_threshold) : 50;
+            const thresholdVal = low_stock_threshold !== undefined ? parseInt(low_stock_threshold) : 5;
             
             request.input('stock', sql.Int, stockVal);
             request.input('threshold', sql.Int, thresholdVal);

@@ -13,6 +13,7 @@ const AddProduct = () => {
   const [categoryId, setCategoryId] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [hsnCode, setHsnCode] = useState('');
+  const [uom, setUom] = useState('Box');
   const [gstPercent, setGstPercent] = useState('0');
 
   // Variants State
@@ -69,6 +70,7 @@ const AddProduct = () => {
         name,
         category_id: finalCategoryId === 'NEW' || !finalCategoryId ? null : parseInt(finalCategoryId),
         hsn_code: hsnCode,
+        uom: uom,
         gst_percent: parseFloat(gstPercent) || 0,
         variants: variants.map(v => ({
           ...v,
@@ -138,6 +140,10 @@ const AddProduct = () => {
             <div className="input-group">
               <label>HSN Code</label>
               <input type="text" value={hsnCode} onChange={e => setHsnCode(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>UOM (e.g. Box, Bag)</label>
+              <input type="text" value={uom} onChange={e => setUom(e.target.value)} />
             </div>
             <div className="input-group">
               <label>GST Percent (%)</label>

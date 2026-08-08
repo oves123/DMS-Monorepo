@@ -4,7 +4,7 @@ const sql = require('mssql');
 const getCompanySettings = async (req, res) => {
     try {
         const result = await new sql.Request()
-            .query('SELECT account_name, account_no, bank_name, ifsc_code, branch, email, claim_window_days FROM CompanySettings WHERE setting_id = 1');
+            .query('SELECT address, mobile_number, state, gst_number, fssai_number, claim_window_days, cgst_rate, sgst_rate FROM CompanySettings WHERE setting_id = 1');
         
         if (result.recordset.length === 0) {
             return res.status(404).json({ message: 'Settings not found' });
@@ -20,18 +20,19 @@ const getCompanySettings = async (req, res) => {
 // Update company settings
 const updateCompanySettings = async (req, res) => {
     try {
-        const { account_name, account_no, bank_name, ifsc_code, branch, email, claim_window_days } = req.body;
+        const { address, mobile_number, state, gst_number, fssai_number, claim_window_days, cgst_rate, sgst_rate } = req.body;
         const file = req.file;
 
         let query = `
             UPDATE CompanySettings SET 
-                account_name = @account_name,
-                account_no = @account_no,
-                bank_name = @bank_name,
-                ifsc_code = @ifsc_code,
-                branch = @branch,
-                email = @email,
-                claim_window_days = @claim_window_days
+                address = @address,
+                mobile_number = @mobile_number,
+                state = @state,
+                gst_number = @gst_number,
+                fssai_number = @fssai_number,
+                claim_window_days = @claim_window_days,
+                cgst_rate = @cgst_rate,
+                sgst_rate = @sgst_rate
         `;
         
         if (file) {
@@ -41,13 +42,14 @@ const updateCompanySettings = async (req, res) => {
         query += ` WHERE setting_id = 1`;
 
         const request = new sql.Request();
-        request.input('account_name', sql.VarChar, account_name);
-        request.input('account_no', sql.VarChar, account_no);
-        request.input('bank_name', sql.VarChar, bank_name);
-        request.input('ifsc_code', sql.VarChar, ifsc_code);
-        request.input('branch', sql.VarChar, branch);
-        request.input('email', sql.VarChar, email);
+        request.input('address', sql.VarChar, address);
+        request.input('mobile_number', sql.VarChar, mobile_number);
+        request.input('state', sql.VarChar, state);
+        request.input('gst_number', sql.VarChar, gst_number);
+        request.input('fssai_number', sql.VarChar, fssai_number);
         request.input('claim_window_days', sql.Int, parseInt(claim_window_days) || 7);
+        request.input('cgst_rate', sql.Decimal(5, 2), parseFloat(cgst_rate) || 2.50);
+        request.input('sgst_rate', sql.Decimal(5, 2), parseFloat(sgst_rate) || 2.50);
 
         if (file) {
             request.input('qr_code_image', sql.VarBinary, file.buffer);

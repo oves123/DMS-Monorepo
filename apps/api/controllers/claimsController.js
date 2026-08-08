@@ -30,8 +30,10 @@ exports.submitClaim = async (req, res) => {
 exports.getClaimImage = async (req, res) => {
     try {
         const claimId = req.params.claim_id;
-        const result = await new sql.Request().query(`
-            SELECT image_binary FROM Claims WHERE claim_id = ${claimId}
+            const request = new sql.Request();
+            request.input('claimId', sql.Int, claimId);
+            const result = await request.query(`
+            SELECT image_binary FROM Claims WHERE claim_id = @claimId
         `);
         
         if (result.recordset.length > 0 && result.recordset[0].image_binary) {
@@ -136,7 +138,9 @@ exports.updateClaimStatus = async (req, res) => {
 exports.getDistributorClaims = async (req, res) => {
     try {
         const distributor_id = req.params.distributor_id;
-        const result = await new sql.Request().query(`
+        const request = new sql.Request();
+        request.input('distributor_id', sql.Int, distributor_id);
+        const result = await request.query(`
             SELECT c.claim_id, c.distributor_id, c.order_id, c.variant_id, 
                    p.name as product_name, v.pack_size, v.pieces_per_box,
                    c.quantity, c.pieces_qty, c.reason, c.status, c.created_at,
@@ -145,7 +149,7 @@ exports.getDistributorClaims = async (req, res) => {
             FROM Claims c
             JOIN ProductVariants v ON c.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
-            WHERE c.distributor_id = ${distributor_id}
+            WHERE c.distributor_id = @distributor_id
             ORDER BY c.created_at DESC
         `);
         res.json(result.recordset);

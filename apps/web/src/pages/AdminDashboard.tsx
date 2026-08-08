@@ -176,7 +176,7 @@ const AdminDashboard = () => {
             <h3 style={{ fontSize: '18px', marginBottom: '20px', color: '#dc2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '20px' }}>⚠️</span> Critical Low Stock
             </h3>
-            <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #fecaca', overflow: 'hidden' }}>
+            <div className="table-responsive" style={{ background: '#fff', borderRadius: '12px', border: '1px solid #fecaca' }}>
               <table className="data-table">
                 <thead>
                   <tr style={{ background: '#fef2f2' }}>

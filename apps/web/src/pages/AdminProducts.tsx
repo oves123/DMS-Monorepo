@@ -122,9 +122,10 @@ const AdminProducts = () => {
     setIsUpdating(true);
     try {
       await api.put(`/api/products/${editingVariant.variant_id}`, {
-        name: editingVariant.product_name, // Name changes are mostly handled at master product level now
+        name: editingVariant.product_name,
         category_name: editingVariant.category_name,
         hsn_code: editingVariant.hsn_code,
+        uom: editingVariant.uom,
         pack_size: editForm.pack_size,
         pieces_per_box: editForm.pieces_per_box ? parseInt(editForm.pieces_per_box) : null,
         distributor_rate: parseFloat(editForm.distributor_rate),
@@ -344,12 +345,14 @@ const AdminProducts = () => {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive">
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                 <thead>
                   <tr>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>PRODUCT NAME</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>CATEGORY</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>HSN CODE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>UOM</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PCS/BOX</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>D RATE</th>
@@ -410,13 +413,14 @@ const AdminProducts = () => {
                               </td>
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.category_name || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.hsn_code || '-'}</td>
+                              <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.uom || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pack_size}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pieces_per_box}</td>
                               <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>₹{v.distributor_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>₹{v.retailer_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                 <button 
-                                  onClick={() => openEditModal({ ...v, product_name: product.name, category_name: product.category_name, hsn_code: product.hsn_code })}
+                                  onClick={() => openEditModal({ ...v, product_name: product.name, category_name: product.category_name, hsn_code: product.hsn_code, uom: product.uom })}
                                   title="Edit Variant"
                                   style={{ background: '#eff6ff', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '6px', borderRadius: '6px' }}
                                 >
@@ -444,6 +448,7 @@ const AdminProducts = () => {
                   )}
                 </tbody>
               </table>
+            </div>
             </div>
 
             {/* Pagination Controls */}
@@ -501,6 +506,14 @@ const AdminProducts = () => {
                 <div className="input-group">
                   <label>Pack Size (e.g., 5Rs (180 PCS))</label>
                   <input type="text" value={editForm.pack_size || ''} onChange={(e) => setEditForm({...editForm, pack_size: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>HSN Code</label>
+                  <input type="text" value={editingVariant.hsn_code || ''} onChange={(e) => setEditingVariant({...editingVariant, hsn_code: e.target.value})} />
+                </div>
+                <div className="input-group">
+                  <label>UOM (e.g. Box, Bag)</label>
+                  <input type="text" value={editingVariant.uom || ''} onChange={(e) => setEditingVariant({...editingVariant, uom: e.target.value})} />
                 </div>
                 <div className="input-group">
                   <label>Pieces Per Box (Auto-extracted if blank)</label>

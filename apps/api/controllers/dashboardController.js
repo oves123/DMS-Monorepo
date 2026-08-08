@@ -35,11 +35,11 @@ exports.getMetrics = async (req, res) => {
                 p.name AS product_name,
                 v.pack_size,
                 ISNULL(i.current_stock_qty, 0) AS current_stock,
-                ISNULL(i.low_stock_threshold, 50) AS low_stock_threshold
+                ISNULL(i.low_stock_threshold, 5) AS low_stock_threshold
             FROM ProductVariants v
             INNER JOIN Products p ON v.product_id = p.product_id
             LEFT JOIN Inventory i ON v.variant_id = i.variant_id
-            WHERE ISNULL(i.current_stock_qty, 0) <= ISNULL(i.low_stock_threshold, 50)
+            WHERE ISNULL(i.current_stock_qty, 0) <= ISNULL(i.low_stock_threshold, 5)
             ORDER BY ISNULL(i.current_stock_qty, 0) ASC
         `);
         const criticalStock = lowStockRes.recordset;

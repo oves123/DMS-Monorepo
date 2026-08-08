@@ -386,6 +386,7 @@ const AdminDistributors = () => {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -498,6 +499,7 @@ const AdminDistributors = () => {
                   )}
                 </tbody>
               </table>
+            </div>
             </div>
 
             {/* Pagination Controls */}

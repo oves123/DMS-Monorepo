@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
-import { Save, Upload, Banknote, Building, Mail, CheckCircle } from 'lucide-react';
+import { Save, Upload, Building, CheckCircle } from 'lucide-react';
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState({
-    account_name: '',
-    account_no: '',
-    bank_name: '',
-    ifsc_code: '',
-    branch: '',
-    email: '',
-    claim_window_days: 7
+    address: '',
+    mobile_number: '',
+    state: '',
+    gst_number: '',
+    fssai_number: '',
+    claim_window_days: 7,
+    cgst_rate: 2.50,
+    sgst_rate: 2.50
   });
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
@@ -28,8 +29,18 @@ const AdminSettings = () => {
       if (response.data) {
         setSettings(response.data);
       }
-      const baseUrl = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'undefined' ? import.meta.env.VITE_API_URL : '';
-      setQrPreview(`${baseUrl}/api/settings/company/qr?` + new Date().getTime());
+      
+      // Fetch QR Code securely with token
+      try {
+        const qrResponse = await api.get('/api/settings/company/qr', { responseType: 'blob' });
+        if (qrResponse.data.size > 0) {
+          const objectUrl = URL.createObjectURL(qrResponse.data);
+          setQrPreview(objectUrl);
+        }
+      } catch (qrErr) {
+        console.error('No QR code found or failed to fetch');
+      }
+      
     } catch (err) {
       console.error('Failed to fetch settings');
     } finally {
@@ -56,13 +67,14 @@ const AdminSettings = () => {
 
     try {
       const formData = new FormData();
-      formData.append('account_name', settings.account_name);
-      formData.append('account_no', settings.account_no);
-      formData.append('bank_name', settings.bank_name);
-      formData.append('ifsc_code', settings.ifsc_code);
-      formData.append('branch', settings.branch);
-      formData.append('email', settings.email);
+      formData.append('address', settings.address);
+      formData.append('mobile_number', settings.mobile_number);
+      formData.append('state', settings.state);
+      formData.append('gst_number', settings.gst_number);
+      formData.append('fssai_number', settings.fssai_number);
       formData.append('claim_window_days', settings.claim_window_days.toString());
+      formData.append('cgst_rate', settings.cgst_rate.toString());
+      formData.append('sgst_rate', settings.sgst_rate.toString());
       if (qrFile) {
         formData.append('qr_code_image', qrFile);
       }
@@ -93,21 +105,32 @@ const AdminSettings = () => {
 
       <div className="data-card" style={{ padding: '32px', maxWidth: '900px', margin: '0 auto' }}>
         <form onSubmit={handleSave}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '40px' }}>
+          <div className="settings-grid">
             
             {/* Left Column: Bank Details */}
             <div>
               <h3 style={{ fontSize: '18px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
-                <Banknote size={20} color="var(--primary)" /> Bank Details
+                <Building size={20} color="var(--primary)" /> Company Address
               </h3>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Account Name</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Address</label>
+                  <textarea
+                    name="address"
+                    value={settings.address}
+                    onChange={handleInputChange as any}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', resize: 'vertical', minHeight: '80px' }}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Mobile Number</label>
                   <input
                     type="text"
-                    name="account_name"
-                    value={settings.account_name}
+                    name="mobile_number"
+                    value={settings.mobile_number}
                     onChange={handleInputChange}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
@@ -115,11 +138,11 @@ const AdminSettings = () => {
                 </div>
 
                 <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Account Number</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>State</label>
                   <input
                     type="text"
-                    name="account_no"
-                    value={settings.account_no}
+                    name="state"
+                    value={settings.state}
                     onChange={handleInputChange}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
@@ -127,11 +150,11 @@ const AdminSettings = () => {
                 </div>
 
                 <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Bank Name</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>GST Number</label>
                   <input
                     type="text"
-                    name="bank_name"
-                    value={settings.bank_name}
+                    name="gst_number"
+                    value={settings.gst_number}
                     onChange={handleInputChange}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
@@ -139,45 +162,15 @@ const AdminSettings = () => {
                 </div>
 
                 <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>IFSC Code</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>FSSAI Number</label>
                   <input
                     type="text"
-                    name="ifsc_code"
-                    value={settings.ifsc_code}
+                    name="fssai_number"
+                    value={settings.fssai_number}
                     onChange={handleInputChange}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
                   />
-                </div>
-
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Branch</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0 12px' }}>
-                    <Building size={16} color="#94a3b8" />
-                    <input
-                      type="text"
-                      name="branch"
-                      value={settings.branch}
-                      onChange={handleInputChange}
-                      style={{ width: '100%', padding: '10px', border: 'none', outline: 'none', background: 'transparent' }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Contact Email</label>
-                  <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0 12px' }}>
-                    <Mail size={16} color="#94a3b8" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={settings.email}
-                      onChange={handleInputChange}
-                      style={{ width: '100%', padding: '10px', border: 'none', outline: 'none', background: 'transparent' }}
-                      required
-                    />
-                  </div>
                 </div>
                 
                 <div className="form-group" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
@@ -195,6 +188,38 @@ const AdminSettings = () => {
                     min="1"
                     required
                   />
+
+                  <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b', borderTop: '1px solid var(--border-color)', paddingTop: '24px', marginTop: '24px' }}>
+                    Billing Settings
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>CGST Rate (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="cgst_rate"
+                        value={settings.cgst_rate}
+                        onChange={handleInputChange}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
+                        min="0"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>SGST Rate (%)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="sgst_rate"
+                        value={settings.sgst_rate}
+                        onChange={handleInputChange}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
+                        min="0"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -166,7 +166,9 @@ exports.bulkUploadDistributors = async (req, res) => {
             try {
                 const request = new sql.Request();
                 // Check if phone number already exists
-                const check = await request.query(`SELECT user_id FROM Users WHERE phone_number = '${phone_number}'`);
+                const checkReq = new sql.Request();
+                checkReq.input('phone_number', sql.VarChar, phone_number);
+                const check = await checkReq.query(`SELECT user_id FROM Users WHERE phone_number = @phone_number`);
                 if (check.recordset.length > 0) {
                     skipCount++;
                     continue; // Skip existing phone numbers

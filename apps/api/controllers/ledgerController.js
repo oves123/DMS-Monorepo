@@ -1,4 +1,5 @@
 const sql = require('mssql');
+const { generateInvoicePdf } = require('../services/pdfService');
 
 // GET /api/ledger
 exports.getInvoices = async (req, res) => {
@@ -45,10 +46,11 @@ exports.getInvoiceDetail = async (req, res) => {
         }
 
         const itemsResult = await request.query(`
-            SELECT p.name AS product_name, v.pack_size, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
+            SELECT p.name AS product_name, p.hsn_code, p.uom, c.name AS category_name, v.pack_size, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
             FROM OrderItems oi
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
+            LEFT JOIN Categories c ON p.category_id = c.category_id
             WHERE oi.order_id = @order_id AND oi.executed_qty > 0
         `);
 
@@ -59,6 +61,66 @@ exports.getInvoiceDetail = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
+    }
+};
+
+// GET /api/ledger/invoice/:order_id/download
+exports.downloadInvoicePdf = async (req, res) => {
+    try {
+        const order_id = req.params.order_id;
+        const request = new sql.Request();
+        request.input('order_id', sql.Int, order_id);
+
+        const invResult = await request.query(`
+            SELECT 
+                i.invoice_id, i.invoice_number, i.subtotal, i.cgst_amount, i.sgst_amount, i.grand_total, i.created_at,
+                i.pdf_url,
+                o.order_id, u.firm_name, u.gst_number, u.phone_number, u.address, u.owner_name
+            FROM Invoices i
+            JOIN Orders o ON i.order_id = o.order_id
+            JOIN Users u ON o.distributor_id = u.user_id
+            WHERE o.order_id = @order_id
+        `);
+
+        if (invResult.recordset.length === 0) {
+            return res.status(404).json({ message: 'Invoice not found' });
+        }
+
+        const invoice = invResult.recordset[0];
+        
+        // If we already generated it, you could choose to return it. But for now let's just generate it fresh to ensure data is updated, or check it.
+        // Let's generate it fresh so it picks up any new UOM/HSN format immediately.
+        
+        const itemsResult = await request.query(`
+            SELECT p.name AS product_name, p.hsn_code, p.uom, c.name AS category_name, v.pack_size, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
+            FROM OrderItems oi
+            JOIN ProductVariants v ON oi.variant_id = v.variant_id
+            JOIN Products p ON v.product_id = p.product_id
+            LEFT JOIN Categories c ON p.category_id = c.category_id
+            WHERE oi.order_id = @order_id AND oi.executed_qty > 0
+        `);
+
+        const settingsRes = await new sql.Request().query('SELECT * FROM CompanySettings WHERE setting_id = 1');
+        const settings = settingsRes.recordset[0] || {};
+
+
+        const invoiceData = {
+            invoice: invoice,
+            items: itemsResult.recordset
+        };
+
+        const pdfUrl = await generateInvoicePdf(invoiceData, settings);
+
+        // Update the invoice with the new pdf_url
+        const req2 = new sql.Request();
+        req2.input('pdf_url', sql.VarChar, pdfUrl);
+        req2.input('invoice_id', sql.Int, invoice.invoice_id);
+        await req2.query(`UPDATE Invoices SET pdf_url = @pdf_url WHERE invoice_id = @invoice_id`);
+
+        res.json({ pdf_url: pdfUrl });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to generate PDF' });
     }
 };
 

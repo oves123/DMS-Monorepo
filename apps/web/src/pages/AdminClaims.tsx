@@ -181,6 +181,7 @@ const AdminClaims = () => {
               </div>
             </div>
 
+          <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
@@ -254,6 +255,7 @@ const AdminClaims = () => {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </div>

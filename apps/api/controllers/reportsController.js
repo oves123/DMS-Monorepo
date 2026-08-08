@@ -103,7 +103,7 @@ exports.getAdminInventoryAlerts = async (req, res) => {
             FROM Inventory i
             JOIN ProductVariants v ON i.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
-            WHERE i.current_stock_qty < 50
+            WHERE i.current_stock_qty < 5
             ORDER BY i.current_stock_qty ASC
         `);
         res.json(result.recordset);

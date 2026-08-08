@@ -50,7 +50,7 @@ exports.getProducts = async (req, res) => {
         // We need to fetch Products and their variants, joined with Categories
         const result = await new sql.Request().query(`
             SELECT 
-                p.product_id, p.name as product_name, p.hsn_code, p.gst_percent,
+                p.product_id, p.name as product_name, p.hsn_code, p.uom, p.gst_percent,
                 c.category_id, c.name as category_name,
                 v.variant_id, v.pack_size, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp
             FROM Products p
@@ -69,6 +69,7 @@ exports.getProducts = async (req, res) => {
                     category_id: row.category_id,
                     category_name: row.category_name,
                     hsn_code: row.hsn_code,
+                    uom: row.uom,
                     gst_percent: row.gst_percent,
                     variants: []
                 };
@@ -97,7 +98,7 @@ exports.addProduct = async (req, res) => {
     // Need a transaction to insert product and variants together
     const transaction = new sql.Transaction();
     try {
-        const { category_id, name, hsn_code, gst_percent, variants } = req.body;
+        const { category_id, name, hsn_code, uom, gst_percent, variants } = req.body;
         
         await transaction.begin();
 
@@ -105,6 +106,7 @@ exports.addProduct = async (req, res) => {
         request.input('category_id', sql.Int, category_id);
         request.input('name', sql.VarChar, name);
         request.input('hsn_code', sql.VarChar, hsn_code);
+        request.input('uom', sql.VarChar, uom || 'Box');
         request.input('gst_percent', sql.Decimal(5,2), gst_percent || 0);
 
         // Check for duplicate product name
@@ -118,9 +120,9 @@ exports.addProduct = async (req, res) => {
 
         // Insert Product
         const productResult = await request.query(`
-            INSERT INTO Products (category_id, name, hsn_code, gst_percent)
+            INSERT INTO Products (category_id, name, hsn_code, uom, gst_percent)
             OUTPUT INSERTED.product_id
-            VALUES (@category_id, @name, @hsn_code, @gst_percent)
+            VALUES (@category_id, @name, @hsn_code, @uom, @gst_percent)
         `);
 
         const product_id = productResult.recordset[0].product_id;
@@ -158,7 +160,7 @@ exports.updateProductVariant = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const variant_id = req.params.variant_id;
-        const { name, category_name, hsn_code, pack_size, pieces_per_box, distributor_rate, retailer_rate } = req.body;
+        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate } = req.body;
 
         await transaction.begin();
         const request = new sql.Request(transaction);
@@ -188,6 +190,7 @@ exports.updateProductVariant = async (req, res) => {
         request.input('cat_id', sql.Int, categoryId);
         request.input('prod_name', sql.VarChar, name);
         request.input('hsn', sql.VarChar, hsn_code || null);
+        request.input('uom', sql.VarChar, uom || 'Box');
         
         const checkNameRes = await request.query(`SELECT product_id FROM Products WHERE name = @prod_name AND product_id != @prod_id`);
         if (checkNameRes.recordset.length > 0) {
@@ -197,7 +200,7 @@ exports.updateProductVariant = async (req, res) => {
 
         await request.query(`
             UPDATE Products 
-            SET category_id = @cat_id, name = @prod_name, hsn_code = @hsn
+            SET category_id = @cat_id, name = @prod_name, hsn_code = @hsn, uom = @uom
             WHERE product_id = @prod_id
         `);
 
@@ -276,6 +279,7 @@ exports.bulkUploadProducts = async (req, res) => {
                 const category_name = row['Category'] || row['category_name'] || null;
                 const product_name = row['Product Name'] || row['product_name'] || row['name'];
                 const hsn_code = row['HSN Code'] || row['hsn_code'] || null;
+                const uom = row['UOM'] || row['uom'] || 'Box';
                 const pack_size = row['Pack Size'] || row['pack_size'];
                 const pieces_per_box = row['Pieces Per Box'] || row['pieces_per_box'] || parsePiecesFromPackSize(pack_size);
                 const distributor_rate = row['Distributor Rate'] || row['distributor_rate'];
@@ -312,11 +316,12 @@ exports.bulkUploadProducts = async (req, res) => {
                 } else {
                     pReq.input('cat_id', sql.Int, categoryId);
                     pReq.input('hsn', sql.VarChar, hsn_code);
+                    pReq.input('uom', sql.VarChar, uom);
                     pReq.input('gst', sql.Decimal(5,2), 0);
                     const newProd = await pReq.query(`
-                        INSERT INTO Products (category_id, name, hsn_code, gst_percent)
+                        INSERT INTO Products (category_id, name, hsn_code, uom, gst_percent)
                         OUTPUT INSERTED.product_id
-                        VALUES (@cat_id, @prod_name, @hsn, @gst)
+                        VALUES (@cat_id, @prod_name, @hsn, @uom, @gst)
                     `);
                     productId = newProd.recordset[0].product_id;
                 }

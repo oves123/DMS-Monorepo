@@ -203,6 +203,7 @@ const AdminInventory = () => {
             </div>
 
             <div style={{ overflowX: 'auto' }}>
+            <div className="table-responsive">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -268,7 +269,7 @@ const AdminInventory = () => {
                         <td 
                           onClick={() => {
                             setEditingCell({ variantId: item.variant_id, field: 'threshold' });
-                            setEditValue(item.low_stock_threshold?.toString() || '50');
+                            setEditValue(item.low_stock_threshold?.toString() || '5');
                           }}
                           style={{ cursor: 'pointer' }}
                           title="Click to quickly edit limit"
@@ -297,7 +298,7 @@ const AdminInventory = () => {
                             onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
-                              {item.low_stock_threshold || 50}
+                              {item.low_stock_threshold || 5}
                             </span>
                           )}
                         </td>
@@ -313,6 +314,7 @@ const AdminInventory = () => {
                   )}
                 </tbody>
               </table>
+            </div>
             </div>
 
             {/* Pagination Controls */}
