@@ -127,7 +127,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               border: '2px solid #22c55e', /* Green outer border */
               fontFamily: 'Arial, sans-serif',
               color: '#000',
-              fontSize: '12px',
+              fontSize: '14px',
               background: '#fff'
             }}>
               
@@ -136,7 +136,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 borderBottom: '2px solid #22c55e', 
                 textAlign: 'center', 
                 fontWeight: 'bold', 
-                fontSize: '14px', 
+                fontSize: '16px', 
                 padding: '4px' 
               }}>
                 TAX INVOICE
@@ -145,7 +145,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               {/* Company Details Row */}
               <div style={{ display: 'flex', borderBottom: '2px solid #22c55e' }}>
                 <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e' }}>
-                  <h2 style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: 'bold' }}>Anand Enterprises</h2>
+                  <h2 style={{ margin: '0 0 2px 0', fontSize: '18px', fontWeight: 'bold' }}>Anand Enterprises</h2>
                   <p style={{ margin: '0 0 2px 0' }}>Address : {settings?.address || ''}</p>
                   <p style={{ margin: '0 0 2px 0' }}>Mobile No. : {settings?.mobile_number || ''} , State : {settings?.state || ''}</p>
                   <p style={{ margin: '0' }}>GST No : {settings?.gst_number || ''} , FSSAI No : {settings?.fssai_number || ''}</p>
@@ -290,17 +290,17 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               )}
               
               {/* Footer / Notes Row */}
-              <div style={{ display: 'flex', minHeight: '100px' }}>
-                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e', fontSize: '11px', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', minHeight: '150px' }}>
+                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e', fontSize: '13px', fontWeight: 'bold' }}>
                   <p style={{ margin: '0 0 2px 0' }}>Note:</p>
                   <p style={{ margin: '0 0 2px 0' }}>1. Order By: {data.invoice.owner_name || '-'}</p>
                   <p style={{ margin: '0 0 2px 0' }}>2. Goods Check Before Received!</p>
                   <p style={{ margin: '0 0 2px 0' }}>3. Subject to jurisdiction : Palghar</p>
                 </div>
-                <div style={{ width: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '2px solid #22c55e' }}>
+                <div style={{ width: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '2px solid #22c55e' }}>
                   <div style={{ 
-                    width: '100px', 
-                    height: '100px'
+                    width: '160px', 
+                    height: '160px'
                   }}>
                     {qrPreview && (
                       <img 
@@ -312,7 +312,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     )}
                   </div>
                 </div>
-                <div style={{ flex: 1, padding: '4px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '12px', fontWeight: 'bold' }}>
+                <div style={{ flex: 1, padding: '4px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '14px', fontWeight: 'bold' }}>
                   <p style={{ margin: '0 0 2px 0' }}>For Anand Enterprises</p>
                   <p style={{ margin: '0 0 2px 0' }}>Authorised Signatory</p>
                 </div>

@@ -13,12 +13,11 @@ const AddProduct = () => {
   const [categoryId, setCategoryId] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [hsnCode, setHsnCode] = useState('');
-  const [uom, setUom] = useState('Box');
   const [gstPercent, setGstPercent] = useState('0');
 
   // Variants State
   const [variants, setVariants] = useState<any[]>([
-    { pack_size: '', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' }
+    { pack_size: '', uom: 'Box', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' }
   ]);
 
   useEffect(() => {
@@ -35,7 +34,7 @@ const AddProduct = () => {
   };
 
   const addVariantRow = () => {
-    setVariants([...variants, { pack_size: '', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' }]);
+    setVariants([...variants, { pack_size: '', uom: 'Box', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' }]);
   };
 
   const removeVariantRow = (index: number) => {
@@ -70,7 +69,6 @@ const AddProduct = () => {
         name,
         category_id: finalCategoryId === 'NEW' || !finalCategoryId ? null : parseInt(finalCategoryId),
         hsn_code: hsnCode,
-        uom: uom,
         gst_percent: parseFloat(gstPercent) || 0,
         variants: variants.map(v => ({
           ...v,
@@ -142,10 +140,6 @@ const AddProduct = () => {
               <input type="text" value={hsnCode} onChange={e => setHsnCode(e.target.value)} />
             </div>
             <div className="input-group">
-              <label>UOM (e.g. Box, Bag)</label>
-              <input type="text" value={uom} onChange={e => setUom(e.target.value)} />
-            </div>
-            <div className="input-group">
               <label>GST Percent (%)</label>
               <input type="number" step="0.01" value={gstPercent} onChange={e => setGstPercent(e.target.value)} />
             </div>
@@ -169,6 +163,10 @@ const AddProduct = () => {
               <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '100px' }}>
                 <label>Pcs/Box</label>
                 <input type="number" min="1" placeholder="Auto" value={v.pieces_per_box} onChange={e => handleVariantChange(index, 'pieces_per_box', e.target.value)} />
+              </div>
+              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '90px' }}>
+                <label>UOM</label>
+                <input type="text" value={v.uom} onChange={e => handleVariantChange(index, 'uom', e.target.value)} />
               </div>
               <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '120px' }}>
                 <label>Distributor Rate (₹)</label>

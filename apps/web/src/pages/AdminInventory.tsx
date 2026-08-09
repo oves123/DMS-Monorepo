@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import api from '../lib/api';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Package } from 'lucide-react';
 
 const AdminInventory = () => {
   const [inventory, setInventory] = useState<any[]>([]);
+  const [expandedProducts, setExpandedProducts] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -26,12 +27,27 @@ const AdminInventory = () => {
   const fetchInventory = async () => {
     try {
       const response = await api.get('/api/inventory');
-      setInventory(response.data);
+      const validProducts = response.data.filter((p: any) => p.variants && p.variants.length > 0);
+      
+      // Sort variants numerically by pack size (e.g. 5Rs before 10Rs)
+      validProducts.forEach((p: any) => {
+        p.variants.sort((a: any, b: any) => {
+          const numA = parseInt(a.pack_size) || 0;
+          const numB = parseInt(b.pack_size) || 0;
+          return numA - numB;
+        });
+      });
+
+      setInventory(validProducts);
     } catch (err) {
       setError('Failed to fetch inventory');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleExpand = (productId: number) => {
+    setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
   };
 
   const handleInlineSave = async (variantId: number, field: 'stock' | 'threshold') => {
@@ -63,24 +79,29 @@ const AdminInventory = () => {
 
   // Filter and Pagination Logic
   const filteredInventory = useMemo(() => {
-    let result = inventory.filter((item: any) => {
-      const matchesSearch = item.product_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        (item.category_name && item.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesCategory = selectedCategory === 'All' || item.category_name === selectedCategory;
-      const matchesStock = 
-        stockFilter === 'All' ? true :
-        stockFilter === 'Low Stock' ? item.current_stock <= item.low_stock_threshold :
-        stockFilter === 'Out of Stock' ? item.current_stock === 0 : true;
-      return matchesSearch && matchesCategory && matchesStock;
+    let result = inventory.filter((product: any) => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (product.category_name && product.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = selectedCategory === 'All' || product.category_name === selectedCategory;
+      
+      // For stock filters, check if ANY variant matches
+      const hasMatchingStock = product.variants.some((item: any) => {
+        if (stockFilter === 'All') return true;
+        if (stockFilter === 'Low Stock') return item.current_stock <= item.low_stock_threshold;
+        if (stockFilter === 'Out of Stock') return item.current_stock === 0;
+        return true;
+      });
+
+      return matchesSearch && matchesCategory && hasMatchingStock;
     });
 
     if (showCritical) {
       result.sort((a, b) => {
-        const aCritical = a.current_stock <= a.low_stock_threshold;
-        const bCritical = b.current_stock <= b.low_stock_threshold;
+        const aCritical = a.variants.some((v: any) => v.current_stock <= v.low_stock_threshold);
+        const bCritical = b.variants.some((v: any) => v.current_stock <= v.low_stock_threshold);
         if (aCritical && !bCritical) return -1;
         if (!aCritical && bCritical) return 1;
-        return a.current_stock - b.current_stock;
+        return 0; // fallback to default order
       });
     }
 
@@ -197,117 +218,163 @@ const AdminInventory = () => {
                   Show Critical Stock First
                 </label>
                 <span style={{ color: 'var(--text-muted)', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                  Showing {filteredInventory.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredInventory.length)} of {filteredInventory.length} entries
+                  Showing {filteredInventory.length > 0 ? indexOfFirstItem + 1 : 0} to {Math.min(indexOfLastItem, filteredInventory.length)} of {filteredInventory.length} products
                 </span>
               </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
             <div className="table-responsive">
-              <table className="data-table">
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th>Pack Size</th>
-                    <th>Current Stock</th>
-                    <th>Alert Limit</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>PRODUCT NAME</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>CATEGORY</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>CURRENT STOCK</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>ALERT LIMIT</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'right' }}>AMOUNT (₹)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentItems.length > 0 ? (
-                    currentItems.map((item) => {
-                      const isLowStock = item.current_stock <= item.low_stock_threshold;
-                      
+                    currentItems.map((product) => {
+                      const isExpanded = expandedProducts[product.product_id];
                       return (
-                      <tr key={item.variant_id}>
-                        <td style={{ fontWeight: 500 }}>
-                          {item.product_name} 
-                          <span style={{ color: '#6b7280', fontSize: '12px', display: 'block' }}>{item.category_name}</span>
-                        </td>
-                        <td>{item.pack_size}</td>
-                        <td 
-                          onClick={() => {
-                            setEditingCell({ variantId: item.variant_id, field: 'stock' });
-                            setEditValue(item.current_stock.toString());
-                          }}
-                          style={{ cursor: 'pointer', position: 'relative' }}
-                          title="Click to quickly edit stock"
-                        >
-                          {editingCell?.variantId === item.variant_id && editingCell?.field === 'stock' ? (
-                            <input 
-                              type="number"
-                              autoFocus
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => handleInlineSave(item.variant_id, 'stock')}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleInlineSave(item.variant_id, 'stock');
-                                if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              style={{ width: '80px', padding: '6px', border: '2px solid var(--primary)', borderRadius: '4px', outline: 'none' }}
-                            />
-                          ) : (
-                            <span style={{ 
-                              fontWeight: 'bold', 
-                              color: isLowStock ? '#ef4444' : '#10b981',
-                              fontSize: '16px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '6px',
-                              borderRadius: '4px',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              {item.current_stock}
-                              {isLowStock && <span style={{ fontSize: '18px' }}>⚠️</span>}
-                            </span>
-                          )}
-                        </td>
-                        <td 
-                          onClick={() => {
-                            setEditingCell({ variantId: item.variant_id, field: 'threshold' });
-                            setEditValue(item.low_stock_threshold?.toString() || '5');
-                          }}
-                          style={{ cursor: 'pointer' }}
-                          title="Click to quickly edit limit"
-                        >
-                          {editingCell?.variantId === item.variant_id && editingCell?.field === 'threshold' ? (
-                            <input 
-                              type="number"
-                              autoFocus
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={() => handleInlineSave(item.variant_id, 'threshold')}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleInlineSave(item.variant_id, 'threshold');
-                                if (e.key === 'Escape') setEditingCell(null);
-                              }}
-                              style={{ width: '80px', padding: '6px', border: '2px solid #f59e0b', borderRadius: '4px', outline: 'none' }}
-                            />
-                          ) : (
-                            <span style={{ 
-                              color: '#64748b',
-                              fontSize: '15px',
-                              padding: '6px',
-                              borderRadius: '4px',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                            >
-                              {item.low_stock_threshold || 5}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
+                        <Fragment key={product.product_id}>
+                          {/* Master Product Header Row */}
+                          <tr 
+                            style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
+                            onClick={() => toggleExpand(product.product_id)}
+                          >
+                            <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
+                                  {isExpanded ? '▼' : '▶'}
+                                </span>
+                                <div style={{ 
+                                  width: '32px', height: '32px', background: '#e2e8f0', borderRadius: '6px', 
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8'
+                                }}>
+                                  <Package size={18} />
+                                </div>
+                                <div>
+                                  {product.name}
+                                  <span style={{ marginLeft: '12px', fontSize: '12px', color: '#64748b', fontWeight: 'normal', background: '#e2e8f0', padding: '2px 8px', borderRadius: '12px' }}>
+                                    {product.variants.length} Variants
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Nested Variant Rows */}
+                          {isExpanded && product.variants.map((item: any) => {
+                            const isLowStock = item.current_stock <= item.low_stock_threshold;
+                            const amount = item.current_stock * item.distributor_rate;
+                            
+                            return (
+                            <tr key={item.variant_id} style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '8px 12px', paddingLeft: '80px', color: '#64748b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+                                {item.pack_size}
+                              </td>
+                              <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.category_name || '-'}</td>
+                              <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{item.pack_size}</td>
+                              
+                              <td 
+                                onClick={() => {
+                                  setEditingCell({ variantId: item.variant_id, field: 'stock' });
+                                  setEditValue(item.current_stock.toString());
+                                }}
+                                style={{ cursor: 'pointer', position: 'relative', textAlign: 'center' }}
+                                title="Click to quickly edit stock"
+                              >
+                                {editingCell?.variantId === item.variant_id && editingCell?.field === 'stock' ? (
+                                  <input 
+                                    type="number"
+                                    autoFocus
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={() => handleInlineSave(item.variant_id, 'stock')}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleInlineSave(item.variant_id, 'stock');
+                                      if (e.key === 'Escape') setEditingCell(null);
+                                    }}
+                                    style={{ width: '80px', padding: '6px', border: '2px solid var(--primary)', borderRadius: '4px', outline: 'none' }}
+                                  />
+                                ) : (
+                                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                  <span style={{ 
+                                    fontWeight: 'bold', 
+                                    color: isLowStock ? '#ef4444' : '#10b981',
+                                    fontSize: '15px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    padding: '6px 12px',
+                                    borderRadius: '4px',
+                                    transition: 'background 0.2s',
+                                    background: isLowStock ? '#fef2f2' : '#ecfdf5'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                                  onMouseLeave={e => e.currentTarget.style.background = isLowStock ? '#fef2f2' : '#ecfdf5'}
+                                  >
+                                    {item.current_stock}
+                                    {isLowStock && <span style={{ fontSize: '16px' }}>⚠️</span>}
+                                  </span>
+                                  </div>
+                                )}
+                              </td>
+                              <td 
+                                onClick={() => {
+                                  setEditingCell({ variantId: item.variant_id, field: 'threshold' });
+                                  setEditValue(item.low_stock_threshold?.toString() || '5');
+                                }}
+                                style={{ cursor: 'pointer', textAlign: 'center' }}
+                                title="Click to quickly edit limit"
+                              >
+                                {editingCell?.variantId === item.variant_id && editingCell?.field === 'threshold' ? (
+                                  <input 
+                                    type="number"
+                                    autoFocus
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onBlur={() => handleInlineSave(item.variant_id, 'threshold')}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleInlineSave(item.variant_id, 'threshold');
+                                      if (e.key === 'Escape') setEditingCell(null);
+                                    }}
+                                    style={{ width: '80px', padding: '6px', border: '2px solid #f59e0b', borderRadius: '4px', outline: 'none' }}
+                                  />
+                                ) : (
+                                  <span style={{ 
+                                    color: '#64748b',
+                                    fontSize: '14px',
+                                    padding: '6px',
+                                    borderRadius: '4px',
+                                    transition: 'background 0.2s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                  >
+                                    {item.low_stock_threshold || 5}
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '14px', textAlign: 'right' }}>
+                                ₹{amount.toFixed(2)}
+                              </td>
+                            </tr>
+                            );
+                          })}
+                        </Fragment>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                         No inventory matches your search.
                       </td>
                     </tr>

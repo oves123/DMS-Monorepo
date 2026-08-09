@@ -34,10 +34,10 @@ async function generateInvoicePdf(invoiceData, settings) {
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: Arial, sans-serif; color: #000; font-size: 12px; background: #fff; margin: 0; padding: 20px; }
+            body { font-family: Arial, sans-serif; color: #000; font-size: 14px; background: #fff; margin: 0; padding: 20px; }
             .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #22c55e; }
             .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px; }
-            h2 { margin: 0 0 2px 0; fontSize: 14px; font-weight: bold; }
+            h2 { margin: 0 0 2px 0; font-size: 18px; font-weight: bold; }
             p { margin: 0 0 2px 0; }
         </style>
     </head>
@@ -158,17 +158,17 @@ async function generateInvoicePdf(invoiceData, settings) {
             </table>
             ` : ''}
             
-            <div style="display: flex; min-height: 100px;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e; font-size: 11px; font-weight: bold;">
+            <div style="display: flex; min-height: 150px;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e; font-size: 13px; font-weight: bold;">
                     <p>Note:</p>
                     <p>1. Order By: ${invoice.owner_name || '-'}</p>
                     <p>2. Goods Check Before Received!</p>
                     <p>3. Subject to jurisdiction : Palghar</p>
                 </div>
-                <div style="width: 150px; display: flex; align-items: center; justify-content: center; border-right: 2px solid #22c55e;">
-                    ${qrBase64 ? `<img src="data:${settings.qr_code_mimetype || 'image/png'};base64,${qrBase64}" style="width: 100px; height: 100px; object-fit: contain;" />` : ''}
+                <div style="width: 200px; display: flex; align-items: center; justify-content: center; border-right: 2px solid #22c55e;">
+                    ${qrBase64 ? `<img src="data:${settings.qr_code_mimetype || 'image/png'};base64,${qrBase64}" style="width: 160px; height: 160px; object-fit: contain;" />` : ''}
                 </div>
-                <div style="flex: 1; padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 12px; font-weight: bold;">
+                <div style="flex: 1; padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 14px; font-weight: bold;">
                     <p>For Anand Enterprises</p>
                     <br><br>
                     <p>Authorised Signatory</p>
@@ -182,7 +182,14 @@ async function generateInvoicePdf(invoiceData, settings) {
 
     const browser = await puppeteer.launch({
         headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-first-run',
+            '--no-zygote'
+        ]
     });
     
     const page = await browser.newPage();

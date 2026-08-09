@@ -50,9 +50,9 @@ exports.getProducts = async (req, res) => {
         // We need to fetch Products and their variants, joined with Categories
         const result = await new sql.Request().query(`
             SELECT 
-                p.product_id, p.name as product_name, p.hsn_code, p.uom, p.gst_percent,
+                p.product_id, p.name as product_name, p.hsn_code, p.gst_percent,
                 c.category_id, c.name as category_name,
-                v.variant_id, v.pack_size, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp
+                v.variant_id, v.pack_size, v.uom, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp
             FROM Products p
             LEFT JOIN Categories c ON p.category_id = c.category_id
             LEFT JOIN ProductVariants v ON p.product_id = v.product_id
@@ -69,7 +69,6 @@ exports.getProducts = async (req, res) => {
                     category_id: row.category_id,
                     category_name: row.category_name,
                     hsn_code: row.hsn_code,
-                    uom: row.uom,
                     gst_percent: row.gst_percent,
                     variants: []
                 };
@@ -78,6 +77,7 @@ exports.getProducts = async (req, res) => {
                 productsMap[row.product_id].variants.push({
                     variant_id: row.variant_id,
                     pack_size: row.pack_size,
+                    uom: row.uom,
                     pieces_per_box: row.pieces_per_box,
                     distributor_rate: row.distributor_rate,
                     retailer_rate: row.retailer_rate,
@@ -98,16 +98,15 @@ exports.addProduct = async (req, res) => {
     // Need a transaction to insert product and variants together
     const transaction = new sql.Transaction();
     try {
-        const { category_id, name, hsn_code, uom, gst_percent, variants } = req.body;
+        const { category_id, name, hsn_code, gst_percent, variants } = req.body;
         
         await transaction.begin();
 
         const request = new sql.Request(transaction);
         request.input('category_id', sql.Int, category_id);
         request.input('name', sql.VarChar, name);
-        request.input('hsn_code', sql.VarChar, hsn_code);
-        request.input('uom', sql.VarChar, uom || 'Box');
-        request.input('gst_percent', sql.Decimal(5,2), gst_percent || 0);
+        request.input('hsn_code', sql.VarChar, hsn_code || null);
+        request.input('gst_percent', sql.Decimal(5,2), gst_percent !== undefined ? gst_percent : 0);
 
         // Check for duplicate product name
         const checkReq = new sql.Request(transaction);
@@ -120,27 +119,28 @@ exports.addProduct = async (req, res) => {
 
         // Insert Product
         const productResult = await request.query(`
-            INSERT INTO Products (category_id, name, hsn_code, uom, gst_percent)
+            INSERT INTO Products (category_id, name, hsn_code, gst_percent)
             OUTPUT INSERTED.product_id
-            VALUES (@category_id, @name, @hsn_code, @uom, @gst_percent)
+            VALUES (@category_id, @name, @hsn_code, @gst_percent)
         `);
 
         const product_id = productResult.recordset[0].product_id;
 
         // Insert Variants
         if (variants && variants.length > 0) {
-            for (let v of variants) {
+            for (let [index, v] of variants.entries()) {
                 const varReq = new sql.Request(transaction);
                 varReq.input('product_id', sql.Int, product_id);
-                varReq.input('pack_size', sql.VarChar, v.pack_size);
-                varReq.input('pieces_per_box', sql.Int, v.pieces_per_box || parsePiecesFromPackSize(v.pack_size));
-                varReq.input('distributor_rate', sql.Decimal(10,2), v.distributor_rate);
-                varReq.input('retailer_rate', sql.Decimal(10,2), v.retailer_rate);
-                varReq.input('mrp', sql.Decimal(10,2), v.mrp);
+                varReq.input(`uom_${index}`, sql.VarChar, v.uom || 'Box');
+                varReq.input(`pack_size_${index}`, sql.VarChar, v.pack_size);
+                varReq.input(`pieces_per_box_${index}`, sql.Int, v.pieces_per_box || parsePiecesFromPackSize(v.pack_size));
+                varReq.input(`distributor_rate_${index}`, sql.Decimal(10,2), v.distributor_rate);
+                varReq.input(`retailer_rate_${index}`, sql.Decimal(10,2), v.retailer_rate);
+                varReq.input(`mrp_${index}`, sql.Decimal(10,2), v.mrp);
 
                 await varReq.query(`
-                    INSERT INTO ProductVariants (product_id, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
-                    VALUES (@product_id, @pack_size, @pieces_per_box, @distributor_rate, @retailer_rate, @mrp)
+                    INSERT INTO ProductVariants (product_id, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
+                    VALUES (@product_id, @uom_${index}, @pack_size_${index}, @pieces_per_box_${index}, @distributor_rate_${index}, @retailer_rate_${index}, @mrp_${index})
                 `);
             }
         }
@@ -160,7 +160,7 @@ exports.updateProductVariant = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const variant_id = req.params.variant_id;
-        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate } = req.body;
+        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, gst_percent } = req.body;
 
         await transaction.begin();
         const request = new sql.Request(transaction);
@@ -190,8 +190,9 @@ exports.updateProductVariant = async (req, res) => {
         request.input('cat_id', sql.Int, categoryId);
         request.input('prod_name', sql.VarChar, name);
         request.input('hsn', sql.VarChar, hsn_code || null);
-        request.input('uom', sql.VarChar, uom || 'Box');
         
+        request.input('gst_pct', sql.Decimal(5,2), gst_percent !== undefined ? gst_percent : 0);
+
         const checkNameRes = await request.query(`SELECT product_id FROM Products WHERE name = @prod_name AND product_id != @prod_id`);
         if (checkNameRes.recordset.length > 0) {
             await transaction.rollback();
@@ -200,11 +201,12 @@ exports.updateProductVariant = async (req, res) => {
 
         await request.query(`
             UPDATE Products 
-            SET category_id = @cat_id, name = @prod_name, hsn_code = @hsn, uom = @uom
+            SET category_id = @cat_id, name = @prod_name, hsn_code = @hsn, gst_percent = @gst_pct
             WHERE product_id = @prod_id
         `);
 
         // 4. Update Variant details
+        request.input('uom', sql.VarChar, uom || 'Box');
         request.input('p_size', sql.VarChar, pack_size);
         request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_r', sql.Decimal(10,2), distributor_rate);
@@ -212,7 +214,7 @@ exports.updateProductVariant = async (req, res) => {
         
         await request.query(`
             UPDATE ProductVariants
-            SET pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r
+            SET uom = @uom, pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r
             WHERE variant_id = @var_id
         `);
 

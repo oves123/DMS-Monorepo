@@ -125,8 +125,9 @@ const AdminProducts = () => {
         name: editingVariant.product_name,
         category_name: editingVariant.category_name,
         hsn_code: editingVariant.hsn_code,
-        uom: editingVariant.uom,
+        gst_percent: editingVariant.gst_percent,
         pack_size: editForm.pack_size,
+        uom: editingVariant.uom,
         pieces_per_box: editForm.pieces_per_box ? parseInt(editForm.pieces_per_box) : null,
         distributor_rate: parseFloat(editForm.distributor_rate),
         retailer_rate: parseFloat(editForm.retailer_rate)
@@ -352,8 +353,8 @@ const AdminProducts = () => {
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>PRODUCT NAME</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>CATEGORY</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>HSN CODE</th>
-                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>UOM</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>UOM</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PCS/BOX</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>D RATE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>R RATE</th>
@@ -371,7 +372,7 @@ const AdminProducts = () => {
                             style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
                             onClick={() => toggleExpand(product.product_id)}
                           >
-                            <td colSpan={7} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                            <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
                                   {isExpanded ? '▼' : '▶'}
@@ -409,18 +410,18 @@ const AdminProducts = () => {
                             <tr key={v.variant_id} style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
                               <td style={{ padding: '8px 12px', paddingLeft: '80px', color: '#64748b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#cbd5e1' }}></div>
-                                {v.pack_size}
+                                {product.name}
                               </td>
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.category_name || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.hsn_code || '-'}</td>
-                              <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px' }}>{product.uom || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pack_size}</td>
+                              <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px', textAlign: 'center' }}>{v.uom || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pieces_per_box}</td>
                               <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>₹{v.distributor_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>₹{v.retailer_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                                 <button 
-                                  onClick={() => openEditModal({ ...v, product_name: product.name, category_name: product.category_name, hsn_code: product.hsn_code, uom: product.uom })}
+                                  onClick={() => openEditModal({ ...v, product_name: product.name, category_name: product.category_name, hsn_code: product.hsn_code, gst_percent: product.gst_percent })}
                                   title="Edit Variant"
                                   style={{ background: '#eff6ff', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '6px', borderRadius: '6px' }}
                                 >
@@ -518,6 +519,10 @@ const AdminProducts = () => {
                 <div className="input-group">
                   <label>Pieces Per Box (Auto-extracted if blank)</label>
                   <input type="number" min="1" value={editForm.pieces_per_box || ''} onChange={(e) => setEditForm({...editForm, pieces_per_box: e.target.value})} placeholder="e.g. 180" />
+                </div>
+                <div className="input-group">
+                  <label>GST Percent (%)</label>
+                  <input type="number" step="0.01" value={editingVariant.gst_percent ?? 0} onChange={(e) => setEditingVariant({...editingVariant, gst_percent: parseFloat(e.target.value) || 0})} />
                 </div>
                 <div className="input-group">
                   <label>Distributor Rate (₹)</label>

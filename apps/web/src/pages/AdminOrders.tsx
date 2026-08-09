@@ -23,6 +23,9 @@ const AdminOrders = () => {
   const [extraDiscount, setExtraDiscount] = useState<number>(0);
   const [discountReason, setDiscountReason] = useState<string>('');
   const [creditApplied, setCreditApplied] = useState<number>(0);
+  
+  // Prevent double submissions
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -47,6 +50,9 @@ const AdminOrders = () => {
   };
 
   const handleExecute = async (order: any) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    
     try {
       const itemsPayload = order.items.map((item: any) => ({
         order_item_id: item.order_item_id,
@@ -68,8 +74,10 @@ const AdminOrders = () => {
       setDiscountReason('');
       setCreditApplied(0);
       fetchOrders();
-    } catch (err) {
-      setError('Failed to execute order');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to execute order');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -385,8 +393,10 @@ const AdminOrders = () => {
                             setExtraDiscount(0);
                             setDiscountReason('');
                             setCreditApplied(0);
-                          }} style={{ marginRight: '10px' }}>Cancel</button>
-                          <button className="primary-btn" onClick={() => handleExecute(order)}>Confirm & Generate Bill</button>
+                          }} style={{ marginRight: '10px' }} disabled={isProcessing}>Cancel</button>
+                          <button className="primary-btn" onClick={() => handleExecute(order)} disabled={isProcessing}>
+                            {isProcessing ? 'Processing...' : 'Confirm & Generate Bill'}
+                          </button>
                         </>
                       ) : (
                         <button className="primary-btn" onClick={() => {

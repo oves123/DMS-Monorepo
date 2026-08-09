@@ -8,7 +8,7 @@ exports.getAdminOrders = async (req, res) => {
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 u.firm_name as distributor_name, u.phone_number as distributor_phone, u.wallet_balance,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, p.hsn_code, p.uom, c.name as category_name, v.variant_id,
+                v.pack_size, p.name as product_name, p.hsn_code, v.uom, c.name as category_name, v.variant_id,
                 inv.current_stock_qty,
                 i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
@@ -73,7 +73,20 @@ exports.executeOrder = async (req, res) => {
         
         await transaction.begin();
 
+        // 0. Check if order is already executed to prevent race conditions
+        const checkReq = new sql.Request(transaction);
+        checkReq.input('order_id', sql.Int, orderId);
+        const checkRes = await checkReq.query(`SELECT status FROM Orders WHERE order_id = @order_id`);
+        if (checkRes.recordset.length === 0) {
+            throw new Error('Order not found');
+        }
+        if (checkRes.recordset[0].status === 'EXECUTED') {
+            throw new Error('Order is already executed');
+        }
+
         let subtotal = 0;
+        let cgst = 0;
+        let sgst = 0;
 
         for (let item of items) {
             const reqQty = new sql.Request(transaction);
@@ -94,7 +107,7 @@ exports.executeOrder = async (req, res) => {
                 WHERE variant_id = @variant_id
             `);
 
-            // Calculate subtotal
+            // Calculate subtotal and individual GST for this item
             // We need price and GST for this variant
             const reqPrice = new sql.Request(transaction);
             reqPrice.input('item_id', sql.Int, item.order_item_id);
@@ -108,8 +121,15 @@ exports.executeOrder = async (req, res) => {
             
             if (priceRes.recordset.length > 0) {
                 const price = priceRes.recordset[0].price_at_order;
-                // Simplified calculation for demo
-                subtotal += (price * item.executed_qty);
+                const gstPct = parseFloat(priceRes.recordset[0].gst_percent) || 0;
+                
+                const itemSubtotal = price * item.executed_qty;
+                subtotal += itemSubtotal;
+                
+                // Split GST into CGST and SGST (half each)
+                const halfGst = gstPct / 2;
+                cgst += itemSubtotal * (halfGst / 100);
+                sgst += itemSubtotal * (halfGst / 100);
             }
         }
 
@@ -120,19 +140,7 @@ exports.executeOrder = async (req, res) => {
             UPDATE Orders SET status = 'EXECUTED', execution_date = GETDATE() WHERE order_id = @order_id
         `);
 
-        // Fetch GST Rates
-        const gstReq = new sql.Request(transaction);
-        const gstRes = await gstReq.query(`SELECT cgst_rate, sgst_rate FROM CompanySettings WHERE setting_id = 1`);
-        let cgst_rate = 2.50;
-        let sgst_rate = 2.50;
-        if (gstRes.recordset.length > 0) {
-            if (gstRes.recordset[0].cgst_rate != null) cgst_rate = parseFloat(gstRes.recordset[0].cgst_rate);
-            if (gstRes.recordset[0].sgst_rate != null) sgst_rate = parseFloat(gstRes.recordset[0].sgst_rate);
-        }
-
         // 4. Generate Invoice
-        const cgst = subtotal * (cgst_rate / 100);
-        const sgst = subtotal * (sgst_rate / 100);
         let grand_total = subtotal + cgst + sgst;
         
         // Apply discounts
@@ -180,7 +188,7 @@ exports.executeOrder = async (req, res) => {
     } catch (err) {
         console.error(err);
         await transaction.rollback();
-        res.status(500).json({ message: 'Failed to execute order' });
+        res.status(500).json({ message: err.message || 'Failed to execute order' });
     }
 };
 
@@ -239,7 +247,7 @@ exports.getDistributorOrders = async (req, res) => {
             SELECT 
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, p.hsn_code, p.uom, c.name as category_name, v.variant_id,
+                v.pack_size, p.name as product_name, p.hsn_code, v.uom, c.name as category_name, v.variant_id,
                 i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
             JOIN OrderItems oi ON o.order_id = oi.order_id

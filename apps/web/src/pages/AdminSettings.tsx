@@ -188,38 +188,6 @@ const AdminSettings = () => {
                     min="1"
                     required
                   />
-
-                  <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b', borderTop: '1px solid var(--border-color)', paddingTop: '24px', marginTop: '24px' }}>
-                    Billing Settings
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>CGST Rate (%)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="cgst_rate"
-                        value={settings.cgst_rate}
-                        onChange={handleInputChange}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
-                        min="0"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>SGST Rate (%)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="sgst_rate"
-                        value={settings.sgst_rate}
-                        onChange={handleInputChange}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
-                        min="0"
-                        required
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

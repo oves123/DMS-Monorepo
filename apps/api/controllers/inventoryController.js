@@ -6,9 +6,12 @@ exports.getInventory = async (req, res) => {
         const result = await new sql.Request().query(`
             SELECT 
                 v.variant_id,
+                p.product_id,
                 p.name AS product_name,
+                c.category_id,
                 c.name AS category_name,
                 v.pack_size,
+                v.distributor_rate,
                 ISNULL(i.current_stock_qty, 0) AS current_stock,
                 ISNULL(i.low_stock_threshold, 5) AS low_stock_threshold
             FROM ProductVariants v
@@ -17,7 +20,31 @@ exports.getInventory = async (req, res) => {
             LEFT JOIN Inventory i ON v.variant_id = i.variant_id
             ORDER BY p.name, v.pack_size
         `);
-        res.json(result.recordset);
+
+        // Group the flat SQL result into a nested JSON structure like products
+        const inventoryMap = {};
+        result.recordset.forEach(row => {
+            if (!inventoryMap[row.product_id]) {
+                inventoryMap[row.product_id] = {
+                    product_id: row.product_id,
+                    name: row.product_name,
+                    category_id: row.category_id,
+                    category_name: row.category_name,
+                    variants: []
+                };
+            }
+            if (row.variant_id) {
+                inventoryMap[row.product_id].variants.push({
+                    variant_id: row.variant_id,
+                    pack_size: row.pack_size,
+                    distributor_rate: row.distributor_rate,
+                    current_stock: row.current_stock,
+                    low_stock_threshold: row.low_stock_threshold
+                });
+            }
+        });
+
+        res.json(Object.values(inventoryMap));
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });
