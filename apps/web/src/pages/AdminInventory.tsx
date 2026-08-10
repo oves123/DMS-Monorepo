@@ -127,11 +127,46 @@ const AdminInventory = () => {
   }, [searchQuery, selectedCategory, stockFilter, showCritical]);
 
 
+  // Calculate Grand Totals
+  const { totalValue, totalItems, criticalItems } = useMemo(() => {
+    let tVal = 0;
+    let tItems = 0;
+    let cItems = 0;
+    inventory.forEach(p => {
+      p.variants?.forEach((v: any) => {
+        tItems += v.current_stock || 0;
+        tVal += (v.current_stock || 0) * (v.distributor_rate || 0);
+        if (v.current_stock <= (v.low_stock_threshold || 5)) {
+          cItems++;
+        }
+      });
+    });
+    return { totalValue: tVal, totalItems: tItems, criticalItems: cItems };
+  }, [inventory]);
+
+
   return (
     <div>
       <div className="page-header">
         <h2 className="page-title">Live Inventory Management</h2>
       </div>
+
+      {!loading && inventory.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Total Warehouse Value</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534' }}>₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Total Items in Stock</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a' }}>{totalItems.toLocaleString('en-IN')}</div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Critical Items (Low Stock)</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: criticalItems > 0 ? '#ef4444' : '#10b981' }}>{criticalItems} Variants</div>
+          </div>
+        </div>
+      )}
 
       {error && <div className="error-message">{error}</div>}
 
@@ -240,6 +275,11 @@ const AdminInventory = () => {
                   {currentItems.length > 0 ? (
                     currentItems.map((product) => {
                       const isExpanded = expandedProducts[product.product_id];
+                      
+                      const totalProdStock = product.variants.reduce((sum: number, v: any) => sum + (v.current_stock || 0), 0);
+                      const totalProdAmount = product.variants.reduce((sum: number, v: any) => sum + ((v.current_stock || 0) * (v.distributor_rate || 0)), 0);
+                      const hasLowStock = product.variants.some((v: any) => (v.current_stock || 0) <= (v.low_stock_threshold || 5));
+
                       return (
                         <Fragment key={product.product_id}>
                           {/* Master Product Header Row */}
@@ -247,7 +287,7 @@ const AdminInventory = () => {
                             style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
                             onClick={() => toggleExpand(product.product_id)}
                           >
-                            <td colSpan={6} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                            <td colSpan={3} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
                                   {isExpanded ? '▼' : '▶'}
@@ -265,6 +305,15 @@ const AdminInventory = () => {
                                   </span>
                                 </div>
                               </div>
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', textAlign: 'center' }}>
+                              {totalProdStock} Total
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              {hasLowStock ? <span style={{ color: '#ef4444', fontSize: '12px', fontWeight: 'bold', background: '#fef2f2', padding: '4px 8px', borderRadius: '4px' }}>⚠️ 1+ Variant Low!</span> : <span style={{ color: '#94a3b8' }}>-</span>}
+                            </td>
+                            <td style={{ padding: '10px 12px', fontWeight: 'bold', color: totalProdAmount > 0 ? '#166534' : totalProdAmount < 0 ? '#dc2626' : '#64748b', textAlign: 'right' }}>
+                              ₹{totalProdAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                           </tr>
 
@@ -363,7 +412,7 @@ const AdminInventory = () => {
                                   </span>
                                 )}
                               </td>
-                              <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '14px', textAlign: 'right' }}>
+                              <td style={{ padding: '8px 12px', color: amount > 0 ? '#166534' : amount < 0 ? '#dc2626' : '#64748b', fontWeight: 600, fontSize: '14px', textAlign: 'right' }}>
                                 ₹{amount.toFixed(2)}
                               </td>
                             </tr>
