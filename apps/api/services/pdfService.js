@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
+const signatureBase64 = require('./signature');
 
 async function generateInvoicePdf(invoiceData, settings) {
     const { invoice, items } = invoiceData;
@@ -180,7 +181,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                 </div>
                 <div style="flex: 1; padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 14px; font-weight: bold;">
                     <p>For Anand Enterprises</p>
-                    <br><br>
+                    <img src="${signatureBase64}" alt="Signature" style="width: 100px; height: auto; margin: 10px 0;" />
                     <p>Authorised Signatory</p>
                 </div>
             </div>
@@ -474,9 +475,9 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                         <tr>
                             <td style="text-align: center;">${idx + 1}</td>
                             <td style="text-align: center;">${item.hsn_code || '-'}</td>
-                            <td style="font-weight: bold;">${item.product_name} - ${item.pack_size}</td>
-                            <td style="text-align: center;">${item.uom || 'Pcs'}</td>
-                            <td style="text-align: center; font-weight: bold;">${item.total_qty}</td>
+                            <td style="font-weight: bold;">${item.product_name}${item.pack_size && item.pack_size !== '-' ? ` - ${item.pack_size}` : ''}</td>
+                            <td style="text-align: center;">${item.pack_size === '-' ? '-' : (item.uom || 'Pcs')}</td>
+                            <td style="text-align: center; font-weight: bold;">${item.quantity || item.pieces_qty || item.total_qty || 0}</td>
                             <td style="text-align: right; font-weight: bold;">${item.price_at_order.toFixed(2)}</td>
                             <td style="text-align: center;">${cgstRate}%</td>
                             <td style="text-align: right;">${cgstAmt.toFixed(2)}</td>
@@ -491,7 +492,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                     <tr>
                         <td colspan="4" style="text-align: right; font-weight: bold;">Total</td>
                         <td style="text-align: center; font-weight: bold; color: #ef4444;">
-                            ${items.reduce((sum, item) => sum + item.total_qty, 0)}
+                            ${items.reduce((sum, item) => sum + (item.quantity || item.pieces_qty || item.total_qty || 0), 0)}
                         </td>
                         <td></td>
                         <td colspan="2" style="text-align: right; font-weight: bold;">
@@ -517,7 +518,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                 </div>
                 <div style="flex: 1; padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 14px; font-weight: bold;">
                     <p>Anand Enterprises</p>
-                    <br><br>
+                    <img src="${signatureBase64}" alt="Signature" style="width: 100px; height: auto; margin: 10px 0;" />
                     <p>Authorised Sign</p>
                 </div>
             </div>

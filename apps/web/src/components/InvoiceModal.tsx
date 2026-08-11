@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
 import { X, Printer, IndianRupee, Download } from 'lucide-react';
+import { signatureBase64 } from '../assets/signatureBase64';
 import RecordPaymentModal from './RecordPaymentModal';
 
 interface InvoiceModalProps {
@@ -66,17 +67,16 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
   const handleDownloadPdf = async () => {
     try {
       setDownloading(true);
-      const response = await api.get(`/api/ledger/invoice/${orderId}/download`);
-      if (response.data.pdf_url) {
-        const fullUrl = `${import.meta.env.VITE_API_URL || ''}${response.data.pdf_url}`;
-        const link = document.createElement('a');
-        link.href = fullUrl;
-        link.download = `Invoice_${data.invoice.invoice_number}.pdf`;
-        link.target = '_blank'; // opens in new tab for mobile safety
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      const response = await api.get(`/api/ledger/invoice/${orderId}/download`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice_${data.invoice.invoice_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (err) {
       alert('Failed to generate PDF. Please try again.');
     } finally {
@@ -367,6 +367,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 </div>
                 <div style={{ flex: 1, padding: '4px 8px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '14px', fontWeight: 'bold' }}>
                   <p style={{ margin: '0 0 2px 0' }}>For Anand Enterprises</p>
+                  <img src={signatureBase64} alt="Signature" style={{ width: '100px', height: 'auto', margin: '10px 0' }} />
                   <p style={{ margin: '0 0 2px 0' }}>Authorised Signatory</p>
                 </div>
               </div>

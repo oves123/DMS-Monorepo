@@ -151,7 +151,49 @@ exports.executeOrder = async (req, res) => {
         // Round off to nearest integer
         grand_total = Math.round(grand_total);
 
-        const invoice_number = 'INV-' + new Date().getTime();
+        // --- Custom Invoice Number Logic ---
+        const now = new Date();
+        const month = now.getMonth(); // 0 = Jan, 11 = Dec
+        const year = now.getFullYear();
+        let startYear, endYear;
+        
+        // Financial year starts from April (month 3)
+        if (month >= 3) {
+            startYear = year;
+            endYear = year + 1;
+        } else {
+            startYear = year - 1;
+            endYear = year;
+        }
+        
+        const fyString = `${startYear.toString().slice(-2)}${endYear.toString().slice(-2)}`;
+        const invoicePrefix = `SS032-${fyString}-`;
+
+        // Find the highest sequence number for the current financial year
+        const maxInvReq = new sql.Request(transaction);
+        maxInvReq.input('prefix', sql.VarChar, `${invoicePrefix}%`);
+        const maxInvRes = await maxInvReq.query(`
+            SELECT MAX(invoice_number) as max_inv 
+            FROM Invoices 
+            WHERE invoice_number LIKE @prefix
+        `);
+        
+        let nextSeq = 1;
+        const maxInv = maxInvRes.recordset[0].max_inv;
+        if (maxInv) {
+            // maxInv looks like "SS032-2627-0170"
+            const parts = maxInv.split('-');
+            const seqStr = parts[parts.length - 1];
+            nextSeq = parseInt(seqStr, 10) + 1;
+        } else {
+            // Start at 0170 for the 2627 financial year as requested
+            if (fyString === '2627') {
+                nextSeq = 170;
+            }
+        }
+        
+        const invoice_number = `${invoicePrefix}${String(nextSeq).padStart(4, '0')}`;
+        // -----------------------------------
 
         const reqInvInsert = new sql.Request(transaction);
         reqInvInsert.input('order_id', sql.Int, orderId);

@@ -9,10 +9,17 @@ interface CreditNoteModalProps {
 }
 
 const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose, onSuccess }) => {
+  const [mode, setMode] = useState<'defective' | 'direct'>('defective');
+  
+  // Defective mode state
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [selectedItems, setSelectedItems] = useState<any>({});
+  
+  // Direct mode state
+  const [directAmount, setDirectAmount] = useState('');
+  const [directReason, setDirectReason] = useState('Subsidy / Direct Credit');
   
   const [isPaidOut, setIsPaidOut] = useState(false);
   const [paymentMode, setPaymentMode] = useState('Cash');
@@ -21,7 +28,6 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
   const { showToast } = useToast();
 
   useEffect(() => {
-    // Distributor has a list of invoices already inside it from the ledger response
     if (distributor && distributor.invoices) {
         setInvoices(distributor.invoices);
     }
@@ -38,12 +44,10 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
     const inv = invoices.find(i => i.invoice_id.toString() === invId);
     setSelectedInvoice(inv);
     
-    // Fetch invoice details using order_id 
     if (inv) {
         setLoadingItems(true);
         try {
             const res = await api.get(`/api/ledger/invoice/${inv.order_id}`);
-            // res.data has { invoice, items }
             setInvoiceItems(res.data.items || []);
             setSelectedItems({});
         } catch (err) {
@@ -91,48 +95,70 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
     return totalQty * item.price_at_order;
   };
 
-  const totalCalculatedCredit = Object.values(selectedItems).reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0);
+  const totalCalculatedCredit = mode === 'defective' 
+    ? Object.values(selectedItems).reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0)
+    : parseFloat(directAmount) || 0;
   
-  // Estimate GST (roughly)
   const gstRate = 5; // 2.5 + 2.5
   const totalWithGst = totalCalculatedCredit * (1 + (gstRate/100));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const itemsPayload = Object.values(selectedItems).map((i: any) => {
-        const qty = parseInt(i.return_qty) || 0;
-        const pieces = parseInt(i.return_pieces) || 0;
-        const piecesPerBox = i.pieces_per_box || 1;
-        const totalQty = qty + (pieces / piecesPerBox);
-        return {
-            variant_id: i.variant_id,
-            quantity: qty,
-            pieces_qty: pieces,
-            reason: i.reason,
-            price_at_order: i.price_at_order,
-            item_total: calculateItemTotal(i),
-            total_qty: totalQty,
-            product_name: i.product_name,
-            pack_size: i.pack_size,
-            hsn_code: i.hsn_code
-        };
-    }).filter(i => i.total_qty > 0);
+    let payload: any = {
+        distributor_id: distributor.distributor_id,
+        is_paid_out: isPaidOut,
+        payment_mode: paymentMode,
+        is_direct_amount: mode === 'direct'
+    };
 
-    if (itemsPayload.length === 0) {
-        showToast('Please select at least one item and enter return quantities.', 'error');
-        return;
+    if (mode === 'direct') {
+        const amt = parseFloat(directAmount);
+        if (isNaN(amt) || amt <= 0) {
+            showToast('Please enter a valid direct amount.', 'error');
+            return;
+        }
+        if (!directReason.trim()) {
+            showToast('Please enter a reason.', 'error');
+            return;
+        }
+        payload.direct_amount = amt;
+        payload.reason = directReason;
+    } else {
+        const itemsPayload = Object.values(selectedItems).map((i: any) => {
+            const qty = parseInt(i.return_qty) || 0;
+            const pieces = parseInt(i.return_pieces) || 0;
+            const piecesPerBox = i.pieces_per_box || 1;
+            const totalQty = qty + (pieces / piecesPerBox);
+            return {
+                variant_id: i.variant_id,
+                quantity: qty,
+                pieces_qty: pieces,
+                reason: i.reason,
+                price_at_order: i.price_at_order,
+                item_total: calculateItemTotal(i),
+                total_qty: totalQty,
+                product_name: i.product_name,
+                pack_size: i.pack_size,
+                hsn_code: i.hsn_code
+            };
+        }).filter((i: any) => i.total_qty > 0);
+
+        if (itemsPayload.length === 0) {
+            showToast('Please select at least one item and enter return quantities.', 'error');
+            return;
+        }
+        if (!selectedInvoice) {
+            showToast('Please select an invoice.', 'error');
+            return;
+        }
+        payload.invoice_id = selectedInvoice.invoice_id;
+        payload.items = itemsPayload;
     }
 
     setIsSubmitting(true);
     try {
-        await api.post('/api/ledger/credit-note', {
-            distributor_id: distributor.distributor_id,
-            invoice_id: selectedInvoice.invoice_id,
-            items: itemsPayload,
-            is_paid_out: isPaidOut,
-            payment_mode: paymentMode
-        });
+        await api.post('/api/ledger/credit-note', payload);
         showToast('Credit Note issued successfully!', 'success');
         onSuccess();
     } catch (err) {
@@ -153,138 +179,195 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
           Distributor/Client: <strong>{distributor.firm_name}</strong>
         </p>
 
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: mode === 'defective' ? 600 : 400 }}>
+                <input 
+                    type="radio" 
+                    name="mode" 
+                    checked={mode === 'defective'} 
+                    onChange={() => setMode('defective')} 
+                />
+                Defective Products
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: mode === 'direct' ? 600 : 400 }}>
+                <input 
+                    type="radio" 
+                    name="mode" 
+                    checked={mode === 'direct'} 
+                    onChange={() => setMode('direct')} 
+                />
+                Direct Amount / Subsidy
+            </label>
+        </div>
+
         <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Select Invoice *</label>
-                <select 
-                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                    onChange={handleInvoiceSelect}
-                    defaultValue=""
-                    required
-                >
-                    <option value="" disabled>-- Choose an Invoice --</option>
-                    {invoices.map(inv => (
-                        <option key={inv.invoice_id} value={inv.invoice_id}>
-                            {inv.invoice_number} (₹{inv.grand_total}) - {new Date(inv.created_at).toLocaleDateString()}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            {mode === 'defective' ? (
+                <>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Select Invoice *</label>
+                        <select 
+                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                            onChange={handleInvoiceSelect}
+                            value={selectedInvoice?.invoice_id?.toString() || ""}
+                            required
+                        >
+                            <option value="" disabled>-- Choose an Invoice --</option>
+                            {invoices.map(inv => (
+                                <option key={inv.invoice_id} value={inv.invoice_id}>
+                                    {inv.invoice_number} (₹{inv.grand_total}) - {new Date(inv.created_at).toLocaleDateString()}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-            {loadingItems && <p>Loading invoice items...</p>}
+                    {loadingItems && <p>Loading invoice items...</p>}
 
-            {invoiceItems.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Select Defective Items</label>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                        <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                                <th style={{ padding: '8px', textAlign: 'left' }}>Item</th>
-                                <th style={{ padding: '8px', textAlign: 'right' }}>Max Qty</th>
-                                <th style={{ padding: '8px', textAlign: 'right' }}>Pcs/Box</th>
-                                <th style={{ padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
-                                <th style={{ padding: '8px', textAlign: 'center' }}>Defective Box/Bag</th>
-                                <th style={{ padding: '8px', textAlign: 'center' }}>Defective Pcs</th>
-                                <th style={{ padding: '8px', textAlign: 'left' }}>Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {invoiceItems.map(item => {
-                                const isSelected = !!selectedItems[item.order_item_id];
-                                return (
-                                    <tr key={item.order_item_id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                        <td style={{ padding: '8px' }}>
-                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={isSelected}
-                                                    onChange={() => handleItemToggle(item)}
-                                                />
-                                                <div>
-                                                    <div style={{ fontWeight: 600 }}>{item.product_name}</div>
-                                                    <div style={{ color: '#64748b', fontSize: '11px' }}>{item.pack_size}</div>
-                                                </div>
-                                            </label>
-                                        </td>
-                                        <td style={{ padding: '8px', textAlign: 'right', color: '#64748b' }}>{item.executed_qty}</td>
-                                        <td style={{ padding: '8px', textAlign: 'right', color: '#64748b', fontSize: '12px' }}>{item.pieces_per_box || '-'}</td>
-                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{item.price_at_order}</td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                                            <input 
-                                                type="number" 
-                                                min="0"
-                                                max={item.executed_qty}
-                                                disabled={!isSelected}
-                                                value={selectedItems[item.order_item_id]?.return_qty ?? ''}
-                                                onChange={(e) => handleItemChange(item.order_item_id, 'return_qty', e.target.value)}
-                                                style={{ width: '60px', padding: '4px', textAlign: 'center' }}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                                            <input 
-                                                type="number" 
-                                                min="0"
-                                                disabled={!isSelected}
-                                                value={selectedItems[item.order_item_id]?.return_pieces ?? ''}
-                                                onChange={(e) => handleItemChange(item.order_item_id, 'return_pieces', e.target.value)}
-                                                style={{ width: '60px', padding: '4px', textAlign: 'center' }}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '8px' }}>
-                                            <input 
-                                                type="text" 
-                                                disabled={!isSelected}
-                                                value={selectedItems[item.order_item_id]?.reason ?? ''}
-                                                onChange={(e) => handleItemChange(item.order_item_id, 'reason', e.target.value)}
-                                                style={{ width: '100%', padding: '4px' }}
-                                                placeholder="Reason"
-                                            />
-                                        </td>
+                    {invoiceItems.length > 0 && (
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Select Defective Items</label>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                <thead>
+                                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left' }}>Item</th>
+                                        <th style={{ padding: '8px', textAlign: 'right' }}>Max Qty</th>
+                                        <th style={{ padding: '8px', textAlign: 'right' }}>Pcs/Box</th>
+                                        <th style={{ padding: '8px', textAlign: 'right' }}>Rate (₹)</th>
+                                        <th style={{ padding: '8px', textAlign: 'center' }}>Defective Box/Bag</th>
+                                        <th style={{ padding: '8px', textAlign: 'center' }}>Defective Pcs</th>
+                                        <th style={{ padding: '8px', textAlign: 'left' }}>Reason</th>
                                     </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-
-                    <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '14px' }}>
-                            Taxable Amount: <strong>₹{totalCalculatedCredit.toFixed(2)}</strong><br/>
-                            Estimated Total (+GST): <strong style={{ color: '#ef4444' }}>₹{totalWithGst.toFixed(2)}</strong>
+                                </thead>
+                                <tbody>
+                                    {invoiceItems.map(item => {
+                                        const isSelected = !!selectedItems[item.order_item_id];
+                                        return (
+                                            <tr key={item.order_item_id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={isSelected}
+                                                            onChange={() => handleItemToggle(item)}
+                                                        />
+                                                        <div>
+                                                            <div style={{ fontWeight: 600 }}>{item.product_name}</div>
+                                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{item.pack_size}</div>
+                                                        </div>
+                                                    </label>
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'right', color: '#64748b' }}>{item.executed_qty}</td>
+                                                <td style={{ padding: '8px', textAlign: 'right', color: '#64748b', fontSize: '12px' }}>{item.pieces_per_box || '-'}</td>
+                                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{item.price_at_order}</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                    <input 
+                                                        type="number" 
+                                                        min="0"
+                                                        max={item.executed_qty}
+                                                        disabled={!isSelected}
+                                                        value={selectedItems[item.order_item_id]?.return_qty ?? ''}
+                                                        onChange={(e) => handleItemChange(item.order_item_id, 'return_qty', e.target.value)}
+                                                        style={{ width: '60px', padding: '4px', textAlign: 'center' }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                    <input 
+                                                        type="number" 
+                                                        min="0"
+                                                        disabled={!isSelected}
+                                                        value={selectedItems[item.order_item_id]?.return_pieces ?? ''}
+                                                        onChange={(e) => handleItemChange(item.order_item_id, 'return_pieces', e.target.value)}
+                                                        style={{ width: '60px', padding: '4px', textAlign: 'center' }}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '8px' }}>
+                                                    <input 
+                                                        type="text" 
+                                                        disabled={!isSelected}
+                                                        value={selectedItems[item.order_item_id]?.reason ?? ''}
+                                                        onChange={(e) => handleItemChange(item.order_item_id, 'reason', e.target.value)}
+                                                        style={{ width: '100%', padding: '4px' }}
+                                                        placeholder="Reason"
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={isPaidOut} 
-                                    onChange={(e) => setIsPaidOut(e.target.checked)} 
-                                />
-                                Mark as Paid Immediately
-                            </label>
-                            {isPaidOut && (
-                                <select 
-                                    value={paymentMode} 
-                                    onChange={(e) => setPaymentMode(e.target.value)}
-                                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                                >
-                                    <option value="Cash">Cash</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="Bank Transfer">Bank Transfer</option>
-                                </select>
-                            )}
-                            {!isPaidOut && (
-                                <div style={{ fontSize: '12px', color: '#64748b' }}>
-                                    Will be credited to wallet balance.
-                                </div>
-                            )}
-                        </div>
+                    )}
+                </>
+            ) : (
+                <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Taxable Amount (₹) *</label>
+                        <input 
+                            type="number" 
+                            step="0.01"
+                            min="0.01"
+                            value={directAmount}
+                            onChange={(e) => setDirectAmount(e.target.value)}
+                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                            placeholder="e.g. 500.00"
+                            required
+                        />
+                        <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>5% GST will be added on top of this amount.</p>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Reason / Details *</label>
+                        <input 
+                            type="text" 
+                            value={directReason}
+                            onChange={(e) => setDirectReason(e.target.value)}
+                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                            placeholder="e.g. Company Subsidy"
+                            required
+                        />
                     </div>
                 </div>
             )}
 
+            <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '14px' }}>
+                    Taxable Amount: <strong>₹{totalCalculatedCredit.toFixed(2)}</strong><br/>
+                    Estimated Total (+GST): <strong style={{ color: '#ef4444' }}>₹{totalWithGst.toFixed(2)}</strong>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                        <input 
+                            type="checkbox" 
+                            checked={isPaidOut} 
+                            onChange={(e) => setIsPaidOut(e.target.checked)} 
+                        />
+                        Mark as Paid Immediately
+                    </label>
+                    {isPaidOut && (
+                        <select 
+                            value={paymentMode} 
+                            onChange={(e) => setPaymentMode(e.target.value)}
+                            style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        >
+                            <option value="Cash">Cash</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                        </select>
+                    )}
+                    {!isPaidOut && (
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>
+                            Will be credited to wallet balance.
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                 <button type="button" className="secondary-btn" onClick={onClose} disabled={isSubmitting}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={isSubmitting || invoiceItems.length === 0}>
+                <button 
+                    type="submit" 
+                    className="primary-btn" 
+                    disabled={isSubmitting || (mode === 'defective' && invoiceItems.length === 0)}
+                >
                   {isSubmitting ? 'Processing...' : 'Issue Credit Note'}
                 </button>
             </div>
