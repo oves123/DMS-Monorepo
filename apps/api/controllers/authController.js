@@ -31,7 +31,7 @@ const loginUser = async (req, res) => {
 
         // Generate JWT Token
         const token = jwt.sign(
-            { user_id: user.user_id, role: user.role, firm_name: user.firm_name },
+            { user_id: user.user_id, role: user.role, firm_name: user.firm_name, rate_type: user.rate_type },
             process.env.JWT_SECRET,
             { expiresIn: '30d' } // Token lasts for 30 days
         );
@@ -44,6 +44,7 @@ const loginUser = async (req, res) => {
                 role: user.role,
                 firm_name: user.firm_name,
                 phone_number: user.phone_number,
+                rate_type: user.rate_type,
                 wallet_balance: user.wallet_balance || 0
             }
         });

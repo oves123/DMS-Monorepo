@@ -1,25 +1,44 @@
 import { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { Download } from 'lucide-react';
 
 const DistributorClaims = () => {
-  const [claims, setClaims] = useState<any[]>([]);
+  const [creditNotes, setCreditNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
   const user = JSON.parse(localStorage.getItem('dms_user') || '{}');
 
   useEffect(() => {
-    fetchClaims();
+    fetchCreditNotes();
   }, []);
 
-  const fetchClaims = async () => {
+  const fetchCreditNotes = async () => {
     try {
-      const response = await api.get(`/api/claims/distributor/${user.user_id}`);
-      setClaims(response.data);
+      const response = await api.get(`/api/ledger/credit-note/distributor/${user.user_id}`);
+      setCreditNotes(response.data);
     } catch (err) {
-      setError('Failed to fetch claims');
+      setError('Failed to fetch credit notes');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownload = async (cnId: number, cnNumber: string) => {
+    try {
+      const res = await api.get(`/api/ledger/credit-note/${cnId}/download`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${cnNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Download failed", err);
+      alert("Failed to download Credit Note.");
     }
   };
 
@@ -33,56 +52,60 @@ const DistributorClaims = () => {
 
       <div className="data-card">
         {loading ? (
-          <div style={{ padding: '20px', textAlign: 'center' }}>Loading claims...</div>
-        ) : claims.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center' }}>Loading credit notes...</div>
+        ) : creditNotes.length === 0 ? (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-            You have not filed any claims yet.
+            No credit notes issued yet.
           </div>
         ) : (
           <div className="table-responsive">
             <table className="data-table" style={{ minWidth: '700px' }}>
               <thead>
                 <tr>
-                  <th>Claim ID</th>
-                  <th>Order #</th>
-                  <th>Product</th>
-                  <th>Claim Qty</th>
-                  <th>Reason</th>
+                  <th>Credit Note #</th>
+                  <th>Against Invoice</th>
+                  <th>Date Issued</th>
                   <th>Amount (Credit)</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {claims.map((claim) => (
-                  <tr key={claim.claim_id}>
-                    <td>#{claim.claim_id}</td>
-                    <td>Order #{claim.order_id}</td>
-                    <td>{claim.product_name} - {claim.pack_size}</td>
-                    <td style={{ fontWeight: 'bold' }}>{claim.quantity}</td>
-                    <td>
-                      {claim.reason}
-                      {claim.has_image === 1 && (
-                        <div style={{ marginTop: '8px' }}>
-                          <a 
-                            href={`${import.meta.env.VITE_API_URL || ''}/api/claims/${claim.claim_id}/image`} 
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            📷 View Photo
-                          </a>
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{claim.claim_amount.toFixed(2)}</td>
+                {creditNotes.map((cn) => (
+                  <tr key={cn.credit_note_id}>
+                    <td style={{ fontWeight: 'bold' }}>{cn.credit_note_number}</td>
+                    <td>{cn.invoice_number}</td>
+                    <td>{new Date(cn.created_at).toLocaleDateString()}</td>
+                    <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{cn.amount.toFixed(2)}</td>
                     <td>
                       <span style={{
                         padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600,
-                        background: claim.status === 'PENDING' ? '#fef3c7' : (claim.status === 'APPROVED' ? '#d1fae5' : '#fee2e2'),
-                        color: claim.status === 'PENDING' ? '#d97706' : (claim.status === 'APPROVED' ? '#059669' : '#b91c1c')
+                        background: cn.is_paid_out ? '#e0e7ff' : '#dcfce7',
+                        color: cn.is_paid_out ? '#4f46e5' : '#166534'
                       }}>
-                        {claim.status}
+                        {cn.is_paid_out ? `Refunded via ${cn.payment_mode}` : 'Added to Wallet'}
                       </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button 
+                        onClick={() => handleDownload(cn.credit_note_id, cn.credit_note_number)}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid #cbd5e1',
+                          color: '#334155',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Download size={14} /> 
+                        Download PDF
+                      </button>
                     </td>
                   </tr>
                 ))}

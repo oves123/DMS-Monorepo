@@ -101,8 +101,8 @@ const AdminProducts = () => {
   };
 
   const handleDownloadTemplate = () => {
-    const templateHeaders = "Category,Product Name,HSN Code,Pack Size,Pieces Per Box,Distributor Rate,Retailer Rate,MRP\n";
-    const sampleRow = "NAMKEEN,Sample Product - 5Rs,21069099,5Rs,240,925.17,996,5\n";
+    const templateHeaders = "PRODUCT CATEGORY,PRODUCT NAME,HSN CODE,Packing,MRP-NEW,WEIGHT PER UNIT-GMS,GST Rate,PCS IN Box/Bag,DB RATE WITHOUT GST,RT RATE WITHOUT GST\n";
+    const sampleRow = "NAMKEEN,RATLAMI SEV,21069099,5Rs,5,18g,5,240,925.17,996\n";
     const blob = new Blob([templateHeaders + sampleRow], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -356,6 +356,7 @@ const AdminProducts = () => {
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>UOM</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PCS/BOX</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>MRP (₹)</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>D RATE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>R RATE</th>
                     <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'right' }}>ACTIONS</th>
@@ -372,7 +373,7 @@ const AdminProducts = () => {
                             style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
                             onClick={() => toggleExpand(product.product_id)}
                           >
-                            <td colSpan={8} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                            <td colSpan={9} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
                                   {isExpanded ? '▼' : '▶'}
@@ -417,6 +418,7 @@ const AdminProducts = () => {
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pack_size}</td>
                               <td style={{ padding: '8px 12px', color: '#64748b', fontSize: '13px', textAlign: 'center' }}>{v.uom || '-'}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>{v.pieces_per_box}</td>
+                              <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>₹{(v.mrp || 0).toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', color: '#166534', fontWeight: 600, fontSize: '13px' }}>₹{v.distributor_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', color: '#0f172a', fontWeight: 500, fontSize: '13px' }}>₹{v.retailer_rate.toFixed(2)}</td>
                               <td style={{ padding: '8px 12px', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
@@ -531,6 +533,10 @@ const AdminProducts = () => {
                 <div className="input-group">
                   <label>Retailer Rate (₹)</label>
                   <input type="number" step="0.01" value={editForm.retailer_rate || ''} onChange={(e) => setEditForm({...editForm, retailer_rate: e.target.value})} required />
+                </div>
+                <div className="input-group">
+                  <label>MRP (₹)</label>
+                  <input type="number" step="0.01" value={editForm.mrp || ''} onChange={(e) => setEditForm({...editForm, mrp: e.target.value})} required />
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>

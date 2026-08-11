@@ -1,288 +1,429 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
-import { Search, CheckCircle, XCircle, Download, Calendar, ArrowUpDown } from 'lucide-react';
-import { useToast } from '../components/Toast';
-import Papa from 'papaparse';
+import { Download, Search, ChevronDown, ChevronRight, FileSpreadsheet, TrendingDown, Wallet, Banknote, AlertCircle } from 'lucide-react';
 
 const AdminClaims = () => {
-  const { showToast } = useToast();
-  const [claims, setClaims] = useState<any[]>([]);
+  const [creditNotes, setCreditNotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Filtering & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC' | null>(null);
-  const [photoModal, setPhotoModal] = useState({ isOpen: false, url: '' });
+  const [dateRange, setDateRange] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [distributorFilter, setDistributorFilter] = useState('all');
 
-  useEffect(() => {
-    fetchClaims();
-  }, []);
+  // Sorting
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const fetchClaims = async () => {
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Expandable Rows
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const [expandedRowItems, setExpandedRowItems] = useState<Record<number, any[]>>({});
+  const [loadingItems, setLoadingItems] = useState(false);
+
+  const fetchCreditNotes = async () => {
     try {
-      const response = await api.get('/api/claims');
-      setClaims(response.data);
+      setLoading(true);
+      const response = await api.get('/api/ledger/credit-note');
+      setCreditNotes(response.data);
     } catch (err) {
-      setError('Failed to fetch claims');
+      console.error('Failed to fetch credit notes:', err);
+      setError('Failed to load credit notes');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (claimId: number, status: 'APPROVED' | 'REJECTED', amount?: number) => {
+  useEffect(() => {
+    fetchCreditNotes();
+  }, []);
+
+  const handleDownload = async (cnId: number) => {
     try {
-      await api.put(`/api/claims/${claimId}/status`, { status, amount });
-      showToast(`Claim ${status.toLowerCase()} successfully!`, 'success');
-      fetchClaims();
+      const response = await api.get(`/api/ledger/credit-note/${cnId}/download`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `CreditNote_${cnId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch (err) {
-      showToast('Failed to update claim status', 'error');
+      console.error('Download failed', err);
+      alert('Failed to download Credit Note.');
     }
   };
 
-  // 1. Calculate Metrics
-  const pendingCount = claims.filter(c => c.status === 'PENDING').length;
-  const approvedAmount = claims.filter(c => c.status === 'APPROVED').reduce((sum, c) => sum + (c.claim_amount || 0), 0);
-  const rejectedCount = claims.filter(c => c.status === 'REJECTED').length;
+  const toggleRow = async (cnId: number) => {
+    if (expandedRowId === cnId) {
+      setExpandedRowId(null);
+      return;
+    }
+    setExpandedRowId(cnId);
+    if (!expandedRowItems[cnId]) {
+      setLoadingItems(true);
+      try {
+        const res = await api.get(`/api/ledger/credit-note/${cnId}/items`);
+        setExpandedRowItems(prev => ({ ...prev, [cnId]: res.data }));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingItems(false);
+      }
+    }
+  };
 
-  // 2. Apply Filters & Sorting
-  let processedClaims = claims.filter(c => {
-    const matchesSearch = !searchQuery || 
-      c.distributor_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.reason?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filter Logic
+  const filteredNotes = useMemo(() => {
+    return creditNotes.filter(cn => {
+      // search
+      const matchesSearch = cn.credit_note_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            cn.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            cn.distributor_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // status
+      const matchesStatus = statusFilter === 'all' || 
+                            (statusFilter === 'refunded' && cn.is_paid_out) ||
+                            (statusFilter === 'wallet' && !cn.is_paid_out);
+      
+      // distributor
+      const matchesDistributor = distributorFilter === 'all' || cn.distributor_id.toString() === distributorFilter;
+
+      // date range
+      let matchesDate = true;
+      if (dateRange !== 'all') {
+        const date = new Date(cn.created_at);
+        const now = new Date();
+        if (dateRange === 'thisMonth') {
+          matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        } else if (dateRange === 'lastMonth') {
+          const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          matchesDate = date.getMonth() === lastMonth.getMonth() && date.getFullYear() === lastMonth.getFullYear();
+        } else if (dateRange === 'thisYear') {
+          matchesDate = date.getFullYear() === now.getFullYear();
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesDistributor && matchesDate;
+    }).sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      if (sortField === 'created_at') {
+        valA = new Date(valA).getTime();
+        valB = new Date(valB).getTime();
+      }
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [creditNotes, searchQuery, statusFilter, distributorFilter, dateRange, sortField, sortDirection]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredNotes.length / itemsPerPage);
+  const paginatedNotes = filteredNotes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, distributorFilter, dateRange]);
+
+  // Metrics
+  const metrics = useMemo(() => {
+    let totalCredit = 0;
+    let totalRefunded = 0;
+    let totalWallet = 0;
     
-    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
+    let reasons: Record<string, number> = {};
+    Object.values(expandedRowItems).flat().forEach(item => {
+      if (item.reason) {
+        reasons[item.reason] = (reasons[item.reason] || 0) + 1;
+      }
+    });
     
-    const matchesDate = (!dateRange.start || new Date(c.created_at) >= new Date(dateRange.start)) &&
-                        (!dateRange.end || new Date(c.created_at) <= new Date(new Date(dateRange.end).setHours(23, 59, 59)));
-    
-    return matchesSearch && matchesStatus && matchesDate;
+    let commonReason = 'N/A';
+    let max = 0;
+    for (const [r, count] of Object.entries(reasons)) {
+      if (count > max) { max = count; commonReason = r; }
+    }
+
+    const now = new Date();
+    creditNotes.forEach(cn => {
+      const d = new Date(cn.created_at);
+      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+        totalCredit += cn.amount;
+        if (cn.is_paid_out) totalRefunded += cn.amount;
+        else totalWallet += cn.amount;
+      }
+    });
+    return { totalCredit, totalRefunded, totalWallet, commonReason };
+  }, [creditNotes, expandedRowItems]);
+
+  const handleExportCSV = () => {
+    const headers = ['Credit Note #', 'Distributor', 'Against Invoice', 'Date Issued', 'Amount', 'Status'];
+    const rows = filteredNotes.map(cn => [
+      cn.credit_note_number,
+      `"${cn.distributor_name}"`,
+      cn.invoice_number || '-',
+      new Date(cn.created_at).toLocaleDateString(),
+      cn.amount.toFixed(2),
+      cn.is_paid_out ? 'Refunded' : 'Wallet Credit'
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `CreditNotes_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const uniqueDistributors = Array.from(new Set(creditNotes.map(cn => cn.distributor_id))).map(id => {
+    const cn = creditNotes.find(c => c.distributor_id === id);
+    return { id, name: cn.distributor_name };
   });
 
-  if (sortOrder) {
-    processedClaims.sort((a, b) => {
-      if (sortOrder === 'DESC') return (b.claim_amount || 0) - (a.claim_amount || 0);
-      return (a.claim_amount || 0) - (b.claim_amount || 0);
-    });
-  }
-
-  // 3. Export to CSV
-  const handleExportCSV = () => {
-    const exportData = processedClaims.map(c => ({
-      'Claim ID': c.claim_id,
-      'Order ID': c.order_id,
-      'Distributor': c.distributor_name,
-      'Product': c.product_name,
-      'Boxes': c.quantity,
-      'Pieces': c.pieces_qty,
-      'Reason': c.reason,
-      'Amount': c.claim_amount,
-      'Status': c.status,
-      'Date': new Date(c.created_at).toLocaleDateString()
-    }));
-    const csv = Papa.unparse(exportData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `claims_report_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
-
-  const handleSortAmount = () => {
-    if (!sortOrder) setSortOrder('DESC');
-    else if (sortOrder === 'DESC') setSortOrder('ASC');
-    else setSortOrder(null);
-  };
-
   return (
-    <div>
-      <div className="page-header">
-        <h2 className="page-title">Defect Claims & Credit Notes</h2>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: 0 }}>Defect Claims & Credit Notes</h1>
+        <button onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+          <FileSpreadsheet size={18} />
+          Export to CSV
+        </button>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
-
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-        <div className="data-card" style={{ padding: '24px', borderLeft: '4px solid #f59e0b' }}>
-          <div style={{ color: '#6b7280', fontSize: '14px', fontWeight: 500 }}>Pending Claims Count</div>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827', marginTop: '8px' }}>{pendingCount}</div>
-          <div style={{ color: '#f59e0b', fontSize: '13px', marginTop: '4px' }}>Requires review</div>
-        </div>
-        <div className="data-card" style={{ padding: '24px', borderLeft: '4px solid #10b981' }}>
-          <div style={{ color: '#6b7280', fontSize: '14px', fontWeight: 500 }}>Total Credit Issued</div>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827', marginTop: '8px' }}>₹{approvedAmount.toFixed(2)}</div>
-          <div style={{ color: '#10b981', fontSize: '13px', marginTop: '4px' }}>Lifetime approved</div>
-        </div>
-        <div className="data-card" style={{ padding: '24px', borderLeft: '4px solid #ef4444' }}>
-          <div style={{ color: '#6b7280', fontSize: '14px', fontWeight: 500 }}>Total Claims Rejected</div>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827', marginTop: '8px' }}>{rejectedCount}</div>
-          <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '4px' }}>Lifetime rejected</div>
-        </div>
-      </div>
-
-      <div className="data-card">
-        {loading ? (
-          <div style={{ padding: '20px', textAlign: 'center' }}>Loading claims...</div>
-        ) : claims.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-            No claims filed yet.
+      {/* Metrics Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px' }}>
+        <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
+            <TrendingDown size={20} color="#ef4444" />
+            Total Credit Issued (This Month)
           </div>
-        ) : (
-          <div>
-            {/* Toolbar: Filters & Export */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', alignItems: 'center' }}>
-              
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {/* Status Tabs */}
-                {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(status => (
-                  <button 
-                    key={status}
-                    onClick={() => setStatusFilter(status as any)}
-                    style={{ 
-                      padding: '6px 16px', 
-                      borderRadius: '20px',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: statusFilter === status ? 'none' : '1px solid var(--border-color)',
-                      background: statusFilter === status ? '#2563eb' : '#fff',
-                      color: statusFilter === status ? '#fff' : '#6b7280'
-                    }}>
-                    {status}
-                  </button>
-                ))}
-              </div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>₹{metrics.totalCredit.toFixed(2)}</div>
+        </div>
+        <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
+            <Banknote size={20} color="#f59e0b" />
+            Total Refunded (Cash/UPI)
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>₹{metrics.totalRefunded.toFixed(2)}</div>
+        </div>
+        <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
+            <Wallet size={20} color="#3b82f6" />
+            Total Credited to Wallets
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>₹{metrics.totalWallet.toFixed(2)}</div>
+        </div>
+        <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
+            <AlertCircle size={20} color="#8b5cf6" />
+            Most Common Defect Reason
+          </div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', marginTop: 'auto' }}>{metrics.commonReason}</div>
+        </div>
+      </div>
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', width: '250px' }}>
-                  <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
-                    <Search size={16} />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search by distributor or reason..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    style={{ padding: '8px 12px 8px 36px', width: '100%', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '14px' }}
-                  />
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f9fafb', padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <Calendar size={16} color="#6b7280" />
-                  <input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '13px', color: '#4b5563' }} />
-                  <span style={{ color: '#9ca3af' }}>-</span>
-                  <input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '13px', color: '#4b5563' }} />
-                </div>
-
-                <button onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '14px' }}>
-                  <Download size={16} /> Export CSV
-                </button>
-              </div>
+      <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+        
+        {/* Filters */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #f3f4f6', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: '1', minWidth: '250px' }}>
+            <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
+              <Search size={18} />
             </div>
-
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Claim ID</th>
-                  <th>Distributor</th>
-                  <th>Product</th>
-                  <th>Claim Qty</th>
-                  <th>Reason</th>
-                  <th onClick={handleSortAmount} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} title="Click to sort">
-                    Amount (Credit)
-                    <ArrowUpDown size={14} color={sortOrder ? '#2563eb' : '#9ca3af'} />
-                  </th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {processedClaims.map((claim) => (
-                  <tr key={claim.claim_id}>
-                    <td>#{claim.claim_id}</td>
-                    <td>
-                      <strong>{claim.distributor_name}</strong><br/>
-                      <span style={{ color: '#64748b', fontSize: '13px' }}>Order #{claim.order_id}</span>
-                    </td>
-                    <td>{claim.product_name} - {claim.pack_size}</td>
-                    <td style={{ fontWeight: 'bold' }}>
-                      {claim.quantity > 0 && <div>{claim.quantity} Box{claim.quantity > 1 ? 'es' : ''}</div>}
-                      {claim.pieces_qty > 0 && <div style={{ color: '#64748b', fontSize: '13px' }}>{claim.pieces_qty} Piece{claim.pieces_qty > 1 ? 's' : ''}</div>}
-                      {claim.quantity === 0 && claim.pieces_qty === 0 && '0'}
-                    </td>
-                    <td>
-                      {claim.reason}
-                      {claim.has_image === 1 && (
-                        <div style={{ marginTop: '8px' }}>
-                          <button 
-                            onClick={() => setPhotoModal({ isOpen: true, url: `/api/claims/${claim.claim_id}/image` })}
-                            style={{ fontSize: '12px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
-                          >
-                            📷 View Photo
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{claim.claim_amount.toFixed(2)}</td>
-                    <td>
-                      <span style={{
-                        padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600,
-                        background: claim.status === 'PENDING' ? '#fef3c7' : (claim.status === 'APPROVED' ? '#d1fae5' : '#fee2e2'),
-                        color: claim.status === 'PENDING' ? '#d97706' : (claim.status === 'APPROVED' ? '#059669' : '#b91c1c')
-                      }}>
-                        {claim.status}
-                      </span>
-                    </td>
-                    <td>
-                      {claim.status === 'PENDING' && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button 
-                            onClick={() => handleUpdateStatus(claim.claim_id, 'APPROVED', claim.claim_amount)}
-                            style={{ padding: '6px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
-                            <CheckCircle size={14} /> Approve
-                          </button>
-                          <button 
-                            onClick={() => handleUpdateStatus(claim.claim_id, 'REJECTED')}
-                            style={{ padding: '6px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
-                            <XCircle size={14} /> Reject
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </div>
-        )}
-      </div>
-
-      {/* Lightbox Modal */}
-      {photoModal.isOpen && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.85)', zIndex: 9999,
-          display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px'
-        }}>
-          <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
-            <button 
-              onClick={() => setPhotoModal({ isOpen: false, url: '' })}
-              style={{ position: 'absolute', top: '-40px', right: 0, background: 'none', border: 'none', color: '#fff', fontSize: '32px', cursor: 'pointer' }}
-            >
-              &times;
-            </button>
-            <img 
-              src={photoModal.url} 
-              alt="Defect Claim Evidence" 
-              style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }} 
+            <input
+              type="text"
+              placeholder="Search Credit Notes, Invoices or Distributors..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 16px 10px 40px', border: '1px solid #e5e7eb',
+                borderRadius: '8px', outline: 'none', fontSize: '14px', transition: 'border-color 0.2s', boxSizing: 'border-box'
+              }}
+              onFocus={(e) => (e.target.style.borderColor = 'var(--primary)')}
+              onBlur={(e) => (e.target.style.borderColor = '#e5e7eb')}
             />
           </div>
-        </div>
-      )}
+          
+          <select value={dateRange} onChange={e => setDateRange(e.target.value)} style={{ padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', outline: 'none', fontSize: '14px', backgroundColor: '#fff', minWidth: '150px' }}>
+            <option value="all">All Time</option>
+            <option value="thisMonth">This Month</option>
+            <option value="lastMonth">Last Month</option>
+            <option value="thisYear">This Year</option>
+          </select>
 
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', outline: 'none', fontSize: '14px', backgroundColor: '#fff', minWidth: '150px' }}>
+            <option value="all">All Statuses</option>
+            <option value="refunded">Refunded (Cash/UPI)</option>
+            <option value="wallet">Added to Wallet</option>
+          </select>
+
+          <select value={distributorFilter} onChange={e => setDistributorFilter(e.target.value)} style={{ padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', outline: 'none', fontSize: '14px', backgroundColor: '#fff', minWidth: '180px' }}>
+            <option value="all">All Distributors</option>
+            {uniqueDistributors.map(d => (
+              <option key={d.id} value={d.id.toString()}>{d.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading credit notes...</div>
+        ) : error ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>{error}</div>
+        ) : filteredNotes.length === 0 ? (
+          <div style={{ padding: '48px', textAlign: 'center', color: '#6b7280' }}>
+            <p style={{ fontSize: '18px', fontWeight: '500', color: '#111827', margin: '0 0 8px 0' }}>No Credit Notes Found</p>
+            <p style={{ margin: 0 }}>Try adjusting your filters or generate a new Credit Note.</p>
+          </div>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                    <th style={{ padding: '16px 16px 16px 24px', width: '40px' }}></th>
+                    <th onClick={() => handleSort('credit_note_number')} style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>
+                      Credit Note # {sortField === 'credit_note_number' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Distributor</th>
+                    <th style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Against Invoice</th>
+                    <th onClick={() => handleSort('created_at')} style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>
+                      Date Issued {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('amount')} style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', cursor: 'pointer' }}>
+                      Amount (Credit) {sortField === 'amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
+                    <th style={{ padding: '16px', fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedNotes.map((cn) => (
+                    <React.Fragment key={cn.credit_note_id}>
+                      <tr style={{ borderBottom: expandedRowId === cn.credit_note_id ? 'none' : '1px solid #f3f4f6', backgroundColor: expandedRowId === cn.credit_note_id ? '#f8fafc' : '#fff', transition: 'background-color 0.2s' }}>
+                        <td style={{ padding: '16px 16px 16px 24px' }}>
+                          <button onClick={() => toggleRow(cn.credit_note_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {expandedRowId === cn.credit_note_id ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                          </button>
+                        </td>
+                        <td style={{ padding: '16px' }}><span style={{ fontWeight: '500', color: '#111827' }}>{cn.credit_note_number}</span></td>
+                        <td style={{ padding: '16px' }}><span style={{ color: '#4b5563' }}>{cn.distributor_name}</span></td>
+                        <td style={{ padding: '16px' }}><span style={{ color: '#4b5563' }}>{cn.invoice_number || '-'}</span></td>
+                        <td style={{ padding: '16px' }}><span style={{ color: '#4b5563' }}>{new Date(cn.created_at).toLocaleDateString()}</span></td>
+                        <td style={{ padding: '16px' }}><span style={{ fontWeight: '600', color: '#16a34a' }}>₹{cn.amount.toFixed(2)}</span></td>
+                        <td style={{ padding: '16px' }}>
+                          {cn.is_paid_out ? (
+                            <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#eff6ff', color: '#1d4ed8', borderRadius: '9999px' }}>Refunded via {cn.payment_mode || 'Cash'}</span>
+                          ) : (
+                            <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#f0fdf4', color: '#15803d', borderRadius: '9999px' }}>Added to Wallet</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px' }}>
+                          <button
+                            onClick={() => handleDownload(cn.credit_note_id)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', fontWeight: '500', color: 'var(--primary)', backgroundColor: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer' }}
+                          >
+                            <Download size={16} /> Download
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedRowId === cn.credit_note_id && (
+                        <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #f3f4f6' }}>
+                          <td colSpan={8} style={{ padding: '0 24px 24px 64px' }}>
+                            <div style={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '16px' }}>
+                              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#475569' }}>Returned Items Detail</h4>
+                              {loadingItems && !expandedRowItems[cn.credit_note_id] ? (
+                                <div style={{ fontSize: '14px', color: '#94a3b8' }}>Loading items...</div>
+                              ) : (
+                                <table style={{ width: '100%', textAlign: 'left', fontSize: '13px' }}>
+                                  <thead>
+                                    <tr style={{ color: '#64748b', borderBottom: '1px solid #f1f5f9' }}>
+                                      <th style={{ paddingBottom: '8px' }}>Product</th>
+                                      <th style={{ paddingBottom: '8px' }}>Pack Size</th>
+                                      <th style={{ paddingBottom: '8px', textAlign: 'center' }}>Defective Box</th>
+                                      <th style={{ paddingBottom: '8px', textAlign: 'center' }}>Defective Pcs</th>
+                                      <th style={{ paddingBottom: '8px', textAlign: 'right' }}>Total (₹)</th>
+                                      <th style={{ paddingBottom: '8px', paddingLeft: '16px' }}>Reason</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {expandedRowItems[cn.credit_note_id]?.map((item, idx) => (
+                                      <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                        <td style={{ padding: '8px 0', fontWeight: 500, color: '#334155' }}>{item.product_name}</td>
+                                        <td style={{ padding: '8px 0', color: '#64748b' }}>{item.pack_size}</td>
+                                        <td style={{ padding: '8px 0', textAlign: 'center', color: '#64748b' }}>{item.quantity}</td>
+                                        <td style={{ padding: '8px 0', textAlign: 'center', color: '#64748b' }}>{item.pieces_qty}</td>
+                                        <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: 600, color: '#475569' }}>{item.item_total.toFixed(2)}</td>
+                                        <td style={{ padding: '8px 0 8px 16px', color: '#ef4444' }}>{item.reason}</td>
+                                      </tr>
+                                    ))}
+                                    {expandedRowItems[cn.credit_note_id]?.length === 0 && (
+                                      <tr><td colSpan={6} style={{ padding: '16px 0', textAlign: 'center', color: '#94a3b8' }}>No item details found.</td></tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                Showing <span style={{ fontWeight: 600, color: '#111827' }}>{((currentPage - 1) * itemsPerPage) + 1}</span> to <span style={{ fontWeight: 600, color: '#111827' }}>{Math.min(currentPage * itemsPerPage, filteredNotes.length)}</span> of <span style={{ fontWeight: 600, color: '#111827' }}>{filteredNotes.length}</span> results
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <select value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}>
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button 
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    style={{ padding: '6px 12px', border: '1px solid #e2e8f0', backgroundColor: currentPage === 1 ? '#f8fafc' : '#fff', color: currentPage === 1 ? '#94a3b8' : '#475569', borderRadius: '6px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Previous
+                  </button>
+                  <button 
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    style={{ padding: '6px 12px', border: '1px solid #e2e8f0', backgroundColor: currentPage === totalPages || totalPages === 0 ? '#f8fafc' : '#fff', color: currentPage === totalPages || totalPages === 0 ? '#94a3b8' : '#475569', borderRadius: '6px', cursor: currentPage === totalPages || totalPages === 0 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };

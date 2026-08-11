@@ -2,24 +2,15 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../../lib/api';
 import { Package, FileText, Search, Filter, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import InvoiceModal from '../../components/InvoiceModal';
-import { useToast } from '../../components/Toast';
 
 const DistributorOrders = () => {
-  const { showToast } = useToast();
   const [orders, setOrders] = useState<any[]>([]);
   const [filedClaims, setFiledClaims] = useState<any[]>([]);
-  const [claimWindowDays, setClaimWindowDays] = useState(7);
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   
-  // Claim State
-  const [claimItem, setClaimItem] = useState<any>(null);
-  const [claimQty, setClaimQty] = useState(0);
-  const [claimPieces, setClaimPieces] = useState(0);
-  const [claimReason, setClaimReason] = useState('');
-  const [claimImage, setClaimImage] = useState<File | null>(null);
-  const [submittingClaim, setSubmittingClaim] = useState(false);
+
 
   const user = JSON.parse(localStorage.getItem('dms_user') || '{}');
 
@@ -32,19 +23,7 @@ const DistributorOrders = () => {
   useEffect(() => {
     fetchOrders();
     fetchClaims();
-    fetchSettings();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const response = await api.get('/api/settings/company');
-      if (response.data && response.data.claim_window_days) {
-        setClaimWindowDays(response.data.claim_window_days);
-      }
-    } catch (err) {
-      console.error('Failed to fetch settings');
-    }
-  };
 
   const fetchOrders = async () => {
     try {
@@ -76,39 +55,7 @@ const DistributorOrders = () => {
     }
   };
 
-  const submitClaim = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!claimItem) return;
-    
-    setSubmittingClaim(true);
-    try {
-      const formData = new FormData();
-      formData.append('order_id', claimItem.order_id);
-      formData.append('variant_id', claimItem.variant_id);
-      formData.append('quantity', claimQty.toString());
-      formData.append('pieces_qty', claimPieces.toString());
-      formData.append('reason', claimReason);
-      formData.append('distributor_id', user.user_id);
-      if (claimImage) {
-        formData.append('image', claimImage);
-      }
 
-      await api.post('/api/claims/submit', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      showToast('Claim submitted successfully!', 'success');
-      setClaimItem(null);
-      setClaimQty(0);
-      setClaimPieces(0);
-      setClaimReason('');
-      setClaimImage(null);
-      fetchClaims(); // Refresh claims to update UI
-    } catch (err) {
-      showToast('Failed to submit claim', 'error');
-    } finally {
-      setSubmittingClaim(false);
-    }
-  };
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -283,38 +230,7 @@ const DistributorOrders = () => {
                                       );
                                     }
                                     
-                                    // Check if the claim window has expired
-                                    let isExpired = false;
-                                    if (order.execution_date) {
-                                      const execDate = new Date(order.execution_date);
-                                      const now = new Date();
-                                      const diffTime = Math.abs(now.getTime() - execDate.getTime());
-                                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                      if (diffDays > claimWindowDays) {
-                                        isExpired = true;
-                                      }
-                                    }
-
-                                    if (isExpired) {
-                                      return (
-                                        <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, background: '#f1f5f9', color: '#64748b' }}>
-                                          Expired
-                                        </span>
-                                      );
-                                    }
-
-                                    return (
-                                      <button 
-                                        onClick={() => {
-                                          setClaimItem({ ...item, order_id: order.order_id });
-                                          setClaimQty(0);
-                                          setClaimPieces(0);
-                                        }}
-                                        style={{ padding: '4px 8px', fontSize: '11px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}
-                                      >
-                                        File Claim
-                                      </button>
-                                    );
+                                    return null;
                                   })()}
                                 </td>
                               )}
@@ -394,77 +310,7 @@ const DistributorOrders = () => {
         )}
       </div>
 
-      {/* Claim Modal */}
-      {claimItem && (
-        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '400px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px' }}>File Defect Claim</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#64748b' }}>
-              Product: <strong>{claimItem.product_name}</strong>
-            </p>
-            
-            <form onSubmit={submitClaim}>
-              <div className="form-group" style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <label>Defective Boxes (Max {claimItem.executed_qty})</label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max={claimItem.executed_qty} 
-                    required
-                    value={claimQty}
-                    onChange={e => setClaimQty(parseInt(e.target.value) || 0)}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label>Defective Pieces</label>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    required
-                    value={claimPieces}
-                    onChange={e => setClaimPieces(parseInt(e.target.value) || 0)}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-                  />
-                </div>
-              </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Reason / Description</label>
-                <textarea 
-                  required
-                  placeholder="E.g., Box damaged during transit, expired product..."
-                  value={claimReason}
-                  onChange={e => setClaimReason(e.target.value)}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', minHeight: '80px' }}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label>Upload Photo (Optional)</label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={e => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      setClaimImage(e.target.files[0]);
-                    }
-                  }}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button type="button" className="secondary-btn" onClick={() => setClaimItem(null)}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={submittingClaim}>
-                  {submittingClaim ? 'Submitting...' : 'Submit Claim'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {selectedOrderId && (
         <InvoiceModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />

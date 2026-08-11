@@ -9,6 +9,7 @@ const AdminDistributors = () => {
   const [distributors, setDistributors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
   const { showToast } = useToast();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,6 +30,7 @@ const AdminDistributors = () => {
   const [password, setPassword] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [fssaiNumber, setFssaiNumber] = useState('');
+  const [rateType, setRateType] = useState('distributor');
   const [panFile, setPanFile] = useState<File | null>(null);
   const [aadharFile, setAadharFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -73,6 +75,7 @@ const AdminDistributors = () => {
       formData.append('password', password);
       if (ownerName) formData.append('owner_name', ownerName);
       if (fssaiNumber) formData.append('fssai_number', fssaiNumber);
+      formData.append('rate_type', rateType);
       if (panFile) formData.append('panFile', panFile);
       if (aadharFile) formData.append('aadharFile', aadharFile);
       if (photoFile) formData.append('photoFile', photoFile);
@@ -89,6 +92,7 @@ const AdminDistributors = () => {
       setPassword('');
       setOwnerName('');
       setFssaiNumber('');
+      setRateType('distributor');
       setPanFile(null);
       setAadharFile(null);
       setPhotoFile(null);
@@ -126,6 +130,7 @@ const AdminDistributors = () => {
       formData.append('phone_number', editForm.phone_number);
       formData.append('owner_name', editForm.owner_name || '');
       formData.append('fssai_number', editForm.fssai_number || '');
+      formData.append('rate_type', editForm.rate_type || 'distributor');
       
       if (editForm.password) {
         formData.append('password', editForm.password);
@@ -256,7 +261,7 @@ const AdminDistributors = () => {
       {showForm && (
         <div className="data-card" style={{ padding: '24px', marginBottom: '24px' }}>
           <h3 style={{ marginBottom: '16px' }}>Create Distributor Account</h3>
-          <form onSubmit={handleAddDistributor} className="form-grid">
+          <form onSubmit={handleAddDistributor} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '20px' }}>
             <div className="input-group">
               <label>Firm Name *</label>
               <input type="text" required value={firmName} onChange={e => setFirmName(e.target.value)} />
@@ -299,6 +304,13 @@ const AdminDistributors = () => {
             <div className="input-group">
               <label>FSSAI Number (Optional)</label>
               <input type="text" value={fssaiNumber} onChange={e => setFssaiNumber(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>Pricing Tier</label>
+              <select value={rateType} onChange={e => setRateType(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <option value="distributor">Distributor Rate (D-Rate)</option>
+                <option value="retailer">Retailer Rate (R-Rate)</option>
+              </select>
             </div>
             <div className="input-group">
               <label>PAN Card Upload (Optional)</label>
@@ -395,6 +407,7 @@ const AdminDistributors = () => {
                     <th>Phone Number</th>
                     <th>GST Number</th>
                     <th>FSSAI Number</th>
+                    <th>Rate Type</th>
                     <th>Wallet Balance</th>
                     <th>Address</th>
                     <th>Files</th>
@@ -411,6 +424,13 @@ const AdminDistributors = () => {
                         <td>{d.phone_number}</td>
                         <td>{d.gst_number || '-'}</td>
                         <td>{d.fssai_number || '-'}</td>
+                        <td>
+                          {d.rate_type === 'retailer' ? (
+                            <span style={{ background: '#fef3c7', color: '#d97706', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>Retailer</span>
+                          ) : (
+                            <span style={{ background: '#e0e7ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>Distributor</span>
+                          )}
+                        </td>
                         <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{d.wallet_balance ? parseFloat(d.wallet_balance).toFixed(2) : '0.00'}</td>
                         <td>{d.address || '-'}</td>
                         <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -492,7 +512,7 @@ const AdminDistributors = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      <td colSpan={11} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                         No distributors match your search.
                       </td>
                     </tr>
@@ -502,40 +522,18 @@ const AdminDistributors = () => {
             </div>
             </div>
 
-            {/* Pagination Controls */}
+            {/* Pagination */}
             {totalPages > 1 && (
-              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center' }}>
-                <button 
-                  onClick={handlePrevPage} 
-                  disabled={currentPage === 1}
-                  style={{ 
-                    padding: '8px 16px', 
-                    background: currentPage === 1 ? '#f3f4f6' : '#fff', 
-                    color: currentPage === 1 ? '#9ca3af' : 'var(--text-main)', 
-                    border: '1px solid var(--border-color)', 
-                    borderRadius: '6px', 
-                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                    fontWeight: 500
-                  }}>
-                  Previous
-                </button>
-                
-                <span style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 8px' }}>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', background: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
+                <span style={{ fontSize: '14px', color: 'var(--text-muted)', marginRight: 'auto' }}>
                   Page {currentPage} of {totalPages}
                 </span>
-
-                <button 
-                  onClick={handleNextPage} 
-                  disabled={currentPage === totalPages}
-                  style={{ 
-                    padding: '8px 16px', 
-                    background: currentPage === totalPages ? '#f3f4f6' : '#fff', 
-                    color: currentPage === totalPages ? '#9ca3af' : 'var(--text-main)', 
-                    border: '1px solid var(--border-color)', 
-                    borderRadius: '6px', 
-                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                    fontWeight: 500
-                  }}>
+                <button onClick={handlePrevPage} disabled={currentPage === 1}
+                  style={{ padding: '8px 16px', background: currentPage === 1 ? '#f3f4f6' : '#fff', color: currentPage === 1 ? '#9ca3af' : 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 500 }}>
+                  Previous
+                </button>
+                <button onClick={handleNextPage} disabled={currentPage === totalPages}
+                  style={{ padding: '8px 16px', background: currentPage === totalPages ? '#f3f4f6' : '#fff', color: currentPage === totalPages ? '#9ca3af' : 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontWeight: 500 }}>
                   Next
                 </button>
               </div>
@@ -548,51 +546,50 @@ const AdminDistributors = () => {
       {editingDist && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
-          padding: '20px'
+          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', zIndex: 1000,
+          padding: '40px 20px', overflowY: 'auto'
         }}>
-          <div style={{ 
-            background: '#fff', 
-            borderRadius: '12px', 
-            width: '100%', 
-            maxWidth: '600px', 
-            maxHeight: '90vh', 
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{ padding: '24px 32px 16px', borderBottom: '1px solid var(--border-color)' }}>
-              <h3 style={{ margin: 0, fontSize: '20px' }}>Edit Distributor</h3>
+          <div style={{ background: '#fff', borderRadius: '12px', width: '100%', maxWidth: '700px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }}>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>Edit Client: {editingDist.firm_name}</h3>
+              <button onClick={() => setEditingDist(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#94a3b8' }}>&times;</button>
             </div>
             
-            <div style={{ overflowY: 'auto', overflowX: 'hidden', padding: '24px 32px' }}>
+            <div style={{ padding: '32px' }}>
               <form id="edit-distributor-form" onSubmit={handleUpdate}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '20px' }}>
                   <div className="input-group">
-                    <label>Firm Name</label>
+                    <label>Firm Name *</label>
                     <input type="text" value={editForm.firm_name || ''} onChange={(e) => setEditForm({...editForm, firm_name: e.target.value})} required />
-                  </div>
-                  <div className="input-group">
-                    <label>Phone Number</label>
-                    <input type="text" value={editForm.phone_number || ''} onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})} required />
-                  </div>
-                  <div className="input-group">
-                    <label>GST Number</label>
-                    <input type="text" value={editForm.gst_number || ''} onChange={(e) => setEditForm({...editForm, gst_number: e.target.value})} />
                   </div>
                   <div className="input-group">
                     <label>Owner Name</label>
                     <input type="text" value={editForm.owner_name || ''} onChange={(e) => setEditForm({...editForm, owner_name: e.target.value})} />
                   </div>
                   <div className="input-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" value={editForm.phone_number || ''} onChange={(e) => setEditForm({...editForm, phone_number: e.target.value})} required />
+                  </div>
+                  <div className="input-group">
+                    <label>GST Number</label>
+                    <input type="text" value={editForm.gst_number || ''} onChange={(e) => setEditForm({...editForm, gst_number: e.target.value})} />
+                  </div>
+                  <div className="input-group">
                     <label>FSSAI Number</label>
                     <input type="text" value={editForm.fssai_number || ''} onChange={(e) => setEditForm({...editForm, fssai_number: e.target.value})} />
                   </div>
                   <div className="input-group">
-                    <label>Reset Password (Optional)</label>
+                    <label>Pricing Tier</label>
+                    <select value={editForm.rate_type || 'distributor'} onChange={(e) => setEditForm({...editForm, rate_type: e.target.value as 'distributor' | 'retailer'})}>
+                      <option value="distributor">Distributor Rate (D-Rate)</option>
+                      <option value="retailer">Retailer Rate (R-Rate)</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label>Change Password (leave blank to keep current)</label>
                     <div style={{ position: 'relative' }}>
                       <input 
                         type={showEditPassword ? "text" : "password"} 
-                        placeholder="Leave blank to keep current password" 
                         value={editForm.password || ''} 
                         onChange={(e) => setEditForm({...editForm, password: e.target.value})} 
                         style={{ width: '100%', paddingRight: '40px' }}

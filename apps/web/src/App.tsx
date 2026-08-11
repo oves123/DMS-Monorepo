@@ -7,6 +7,7 @@ import AddProduct from './pages/AddProduct';
 import AdminDistributors from './pages/AdminDistributors';
 import AdminInventory from './pages/AdminInventory';
 import AdminOrders from './pages/AdminOrders';
+import AdminCreateOrder from './pages/AdminCreateOrder';
 import AdminLedger from './pages/AdminLedger';
 import AdminReports from './pages/AdminReports';
 import AdminClaims from './pages/AdminClaims';
@@ -29,6 +30,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
           
           {/* Admin Routes (Wrapped in Layout) */}
           <Route element={<AdminLayout />}>
@@ -37,6 +39,7 @@ function App() {
             <Route path="/admin/products/add" element={<AddProduct />} />
             <Route path="/admin/inventory" element={<AdminInventory />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/orders/create" element={<AdminCreateOrder />} />
             <Route path="/admin/distributors" element={<AdminDistributors />} />
             <Route path="/admin/ledger" element={<AdminLedger />} />
             <Route path="/admin/claims" element={<AdminClaims />} />

@@ -104,7 +104,7 @@ const BulkOrderForm = () => {
         }
       });
     });
-    return { grandTotalQty: q, grandTotalValue: v };
+    return { grandTotalQty: q, grandTotalValue: Math.round(v) };
   }, [orderData, catalog]);
 
   const handleSubmitOrder = async () => {

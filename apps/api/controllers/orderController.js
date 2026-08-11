@@ -8,7 +8,7 @@ exports.getAdminOrders = async (req, res) => {
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 u.firm_name as distributor_name, u.phone_number as distributor_phone, u.wallet_balance,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, p.hsn_code, v.uom, c.name as category_name, v.variant_id,
+                v.pack_size, p.name as product_name, p.hsn_code, p.gst_percent, v.uom, c.name as category_name, v.variant_id,
                 inv.current_stock_qty,
                 i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
@@ -46,6 +46,7 @@ exports.getAdminOrders = async (req, res) => {
                 variant_id: row.variant_id,
                 product_name: row.product_name,
                 hsn_code: row.hsn_code,
+                gst_percent: parseFloat(row.gst_percent) || 0,
                 uom: row.uom,
                 category_name: row.category_name,
                 pack_size: row.pack_size,
@@ -146,6 +147,9 @@ exports.executeOrder = async (req, res) => {
         // Apply discounts
         grand_total = grand_total - credit_applied - extra_discount;
         if (grand_total < 0) grand_total = 0;
+        
+        // Round off to nearest integer
+        grand_total = Math.round(grand_total);
 
         const invoice_number = 'INV-' + new Date().getTime();
 
@@ -247,7 +251,7 @@ exports.getDistributorOrders = async (req, res) => {
             SELECT 
                 o.order_id, o.status, o.order_date, o.execution_date, o.apply_wallet,
                 oi.order_item_id, oi.requested_qty, oi.executed_qty, oi.price_at_order,
-                v.pack_size, p.name as product_name, p.hsn_code, v.uom, c.name as category_name, v.variant_id,
+                v.pack_size, p.name as product_name, p.hsn_code, p.gst_percent, v.uom, c.name as category_name, v.variant_id,
                 i.credit_applied, i.extra_discount, i.grand_total as final_payable
             FROM Orders o
             JOIN OrderItems oi ON o.order_id = oi.order_id
@@ -280,6 +284,7 @@ exports.getDistributorOrders = async (req, res) => {
                 variant_id: row.variant_id,
                 product_name: row.product_name,
                 hsn_code: row.hsn_code,
+                gst_percent: parseFloat(row.gst_percent) || 0,
                 uom: row.uom,
                 category_name: row.category_name,
                 pack_size: row.pack_size,

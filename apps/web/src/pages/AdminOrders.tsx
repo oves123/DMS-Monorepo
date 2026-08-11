@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
-import { Search, Filter, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, Eye, EyeOff, PlusCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   // Filter & Pagination State
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,6 +23,7 @@ const AdminOrders = () => {
   
   // New States for Discounts and Wallet
   const [extraDiscount, setExtraDiscount] = useState<number>(0);
+  const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
   const [discountReason, setDiscountReason] = useState<string>('');
   const [creditApplied, setCreditApplied] = useState<number>(0);
   
@@ -49,7 +52,7 @@ const AdminOrders = () => {
     });
   };
 
-  const handleExecute = async (order: any) => {
+  const handleExecute = async (order: any, calculatedDiscount: number) => {
     if (isProcessing) return;
     setIsProcessing(true);
     
@@ -64,13 +67,14 @@ const AdminOrders = () => {
 
       await api.put(`/api/orders/${order.order_id}/execute`, {
         items: itemsPayload,
-        extra_discount: extraDiscount,
+        extra_discount: calculatedDiscount,
         discount_reason: discountReason,
         credit_applied: creditApplied
       });
 
       setExecutingOrderId(null);
       setExtraDiscount(0);
+      setDiscountType('amount');
       setDiscountReason('');
       setCreditApplied(0);
       fetchOrders();
@@ -102,8 +106,16 @@ const AdminOrders = () => {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 className="page-title">Orders Management</h2>
+        <button 
+          className="primary-btn" 
+          onClick={() => navigate('/admin/orders/create')}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <PlusCircle size={18} />
+          Create Manual Order
+        </button>
       </div>
 
       {error && <div className="error-message">{error}</div>}
@@ -195,7 +207,11 @@ const AdminOrders = () => {
                   qty = item.requested_qty || 0;
                 }
                 totalBoxes += qty;
-                totalAmount += (qty * item.price_at_order);
+                const itemSubtotal = qty * item.price_at_order;
+                const gstPct = item.gst_percent || 0;
+                const cgst = itemSubtotal * (gstPct / 2 / 100);
+                const sgst = itemSubtotal * (gstPct / 2 / 100);
+                totalAmount += (itemSubtotal + cgst + sgst);
               });
 
               return (
@@ -244,6 +260,7 @@ const AdminOrders = () => {
                       <th>Requested Qty</th>
                       <th>Available Stock</th>
                       <th>Price</th>
+                      <th>GST (%)</th>
                       {executingOrderId === order.order_id && <th>Execute Qty</th>}
                       {order.status === 'EXECUTED' && <th>Executed Qty</th>}
                     </tr>
@@ -259,6 +276,7 @@ const AdminOrders = () => {
                             {maxQty}
                           </td>
                           <td>₹{item.price_at_order}</td>
+                          <td>{item.gst_percent || 0}%</td>
                           
                           {executingOrderId === order.order_id && (
                             <td>
@@ -291,14 +309,15 @@ const AdminOrders = () => {
                   <tfoot>
                     <tr style={{ background: '#f8fafc', borderTop: '2px solid var(--border-color)' }}>
                       <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#475569', padding: '12px' }}>
-                        Order Summary:
+                        Order Summary (incl. GST):
                       </td>
                       <td style={{ fontWeight: 'bold', color: order.status === 'PENDING' && executingOrderId !== order.order_id ? '#0f172a' : '#9ca3af', padding: '12px' }}>
                         {order.status === 'PENDING' && executingOrderId !== order.order_id ? totalBoxes : '-'}
                       </td>
                       <td></td>
+                      <td></td>
                       <td style={{ fontWeight: 'bold', color: '#10b981', fontSize: '15px', padding: '12px' }}>
-                        ₹{totalAmount.toFixed(2)}
+                        ₹{Math.round(totalAmount)}
                       </td>
                       {(executingOrderId === order.order_id || order.status === 'EXECUTED') && (
                         <td style={{ fontWeight: 'bold', color: '#0f172a', padding: '12px' }}>
@@ -316,17 +335,17 @@ const AdminOrders = () => {
                       <div style={{ display: 'flex', gap: '24px' }}>
                         <div>
                           <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Wallet Credit Applied</div>
-                          <div style={{ fontSize: '16px', color: '#0f172a', fontWeight: 500 }}>₹{order.credit_applied?.toFixed(2) || '0.00'}</div>
+                          <div style={{ fontSize: '16px', color: '#0f172a', fontWeight: 500 }}>₹{Math.round(order.credit_applied || 0)}</div>
                         </div>
                         <div>
                           <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Extra Discount</div>
-                          <div style={{ fontSize: '16px', color: '#0f172a', fontWeight: 500 }}>₹{order.extra_discount?.toFixed(2) || '0.00'}</div>
+                          <div style={{ fontSize: '16px', color: '#0f172a', fontWeight: 500 }}>₹{Math.round(order.extra_discount || 0)}</div>
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Final Payable</div>
                         <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
-                           ₹{order.final_payable?.toFixed(2) || '0.00'}
+                           ₹{Math.round(order.final_payable || 0)}
                         </div>
                       </div>
                     </div>
@@ -351,13 +370,28 @@ const AdminOrders = () => {
                             {order.apply_wallet && <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>Distributor requested wallet discount</div>}
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Extra Discount (₹)</label>
+                            <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+                              Extra Discount
+                              <select 
+                                value={discountType} 
+                                onChange={e => setDiscountType(e.target.value as 'amount'|'percent')}
+                                style={{ marginLeft: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', outline: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', padding: '2px 4px' }}
+                              >
+                                <option value="amount">₹ (Flat)</option>
+                                <option value="percent">% (Percent)</option>
+                              </select>
+                            </label>
                             <input 
                               type="number" 
-                              value={extraDiscount} 
+                              value={extraDiscount || ''} 
                               onChange={e => setExtraDiscount(parseFloat(e.target.value) || 0)}
                               style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
                             />
+                            {discountType === 'percent' && extraDiscount > 0 && (
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                                ₹{(totalAmount * (extraDiscount / 100)).toFixed(2)}
+                              </div>
+                            )}
                           </div>
                           <div>
                             <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Discount Reason</label>
@@ -376,10 +410,10 @@ const AdminOrders = () => {
                           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
                             {(creditApplied > 0 || extraDiscount > 0) && (
                               <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: '16px', marginRight: '12px' }}>
-                                ₹{totalAmount.toFixed(2)}
+                                ₹{Math.round(totalAmount)}
                               </span>
                             )}
-                            ₹{Math.max(0, totalAmount - (creditApplied || 0) - (extraDiscount || 0)).toFixed(2)}
+                            ₹{Math.round(Math.max(0, totalAmount - (creditApplied || 0) - (discountType === 'percent' ? totalAmount * (extraDiscount / 100) : extraDiscount)))}
                           </div>
                         </div>
                       </div>
@@ -394,7 +428,7 @@ const AdminOrders = () => {
                             setDiscountReason('');
                             setCreditApplied(0);
                           }} style={{ marginRight: '10px' }} disabled={isProcessing}>Cancel</button>
-                          <button className="primary-btn" onClick={() => handleExecute(order)} disabled={isProcessing}>
+                          <button className="primary-btn" onClick={() => handleExecute(order, discountType === 'percent' ? totalAmount * (extraDiscount / 100) : extraDiscount)} disabled={isProcessing}>
                             {isProcessing ? 'Processing...' : 'Confirm & Generate Bill'}
                           </button>
                         </>
@@ -407,7 +441,11 @@ const AdminOrders = () => {
                             const maxQty = item.current_stock !== undefined ? item.current_stock : 0;
                             const execQty = Math.min(item.requested_qty, maxQty);
                             defaultQts[item.order_item_id] = execQty;
-                            orderTotal += execQty * item.price_at_order;
+                            const itemSubtotal = execQty * item.price_at_order;
+                            const gstPct = item.gst_percent || 0;
+                            const cgst = itemSubtotal * (gstPct / 2 / 100);
+                            const sgst = itemSubtotal * (gstPct / 2 / 100);
+                            orderTotal += (itemSubtotal + cgst + sgst);
                           });
                           setExecutionQuantities(defaultQts);
                           

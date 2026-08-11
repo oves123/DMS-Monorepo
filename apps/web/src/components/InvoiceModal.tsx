@@ -195,11 +195,11 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', width: '50px' }}>UOM</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', width: '40px' }}>Qty</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', width: '50px' }}>Rate</th>
-                    <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', width: '60px' }}>Taxable Amt</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', width: '40px' }}>CGST %</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', width: '50px' }}>CGST Amt</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', width: '40px' }}>SGST %</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', width: '50px' }}>SGST Amt</th>
+                    <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', width: '60px' }}>Taxable Amt</th>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', width: '70px' }}>Amount</th>
                   </tr>
                 </thead>
@@ -226,13 +226,13 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontWeight: 'bold' }}>
                           {item.price_at_order}
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontWeight: 'bold' }}>
-                          {taxableAmt.toFixed(2)}
-                        </td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>{cgstRate}%</td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right' }}>{cgstAmt.toFixed(2)}</td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>{sgstRate}%</td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right' }}>{sgstAmt.toFixed(2)}</td>
+                        <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontWeight: 'bold' }}>
+                          {taxableAmt.toFixed(2)}
+                        </td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontWeight: 'bold' }}>
                           {rowTotal.toFixed(2)}
                         </td>
@@ -259,35 +259,88 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                       {(data.invoice.sgst_amount || 0).toFixed(2)}
                     </td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {(data.invoice.grand_total || 0).toFixed(2)}
+                      {((data.invoice.grand_total || 0) + (data.invoice.extra_discount || 0) + (data.invoice.credit_applied || 0)).toFixed(2)}
                     </td>
                   </tr>
+                  {(data.invoice.extra_discount > 0 || data.invoice.credit_applied > 0) && (
+                    <>
+                      {data.invoice.extra_discount > 0 && (
+                        <tr>
+                          <td colSpan={11} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                            Extra Discount {data.invoice.discount_reason ? `(${data.invoice.discount_reason})` : ''}
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a' }}>
+                            -{(data.invoice.extra_discount || 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      {data.invoice.credit_applied > 0 && (
+                        <tr>
+                          <td colSpan={11} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                            Wallet Credit Applied
+                          </td>
+                          <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold', color: '#16a34a' }}>
+                            -{(data.invoice.credit_applied || 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td colSpan={11} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                          FINAL PAYABLE
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                          {(data.invoice.grand_total || 0).toFixed(2)}
+                        </td>
+                      </tr>
+                    </>
+                  )}
                 </tfoot>
               </table>
               
               {/* Category Summary Table */}
-              {Object.keys(categorySummary).length > 0 && (
-                <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #22c55e' }} className="excel-table">
-                  <thead>
-                    <tr>
-                      <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc' }}>Filling Type</th>
-                      {Object.keys(categorySummary).map(cat => (
-                        <th key={cat} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc' }}>{cat}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>Box</td>
-                      {Object.keys(categorySummary).map(cat => (
-                        <td key={cat} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>
-                          {categorySummary[cat]}
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              )}
+              {Object.keys(categorySummary).length > 0 && (() => {
+                const preferredOrder = [
+                  'chips',
+                  'popcorn',
+                  'fryums',
+                  'namkeen',
+                  'kurkure',
+                  'choco bites'
+                ];
+                
+                const getCategorySortWeight = (catName: string) => {
+                  const lowerName = catName.toLowerCase();
+                  const index = preferredOrder.indexOf(lowerName);
+                  return index !== -1 ? index : 999;
+                };
+
+                const sortedCategories = Object.keys(categorySummary).sort((a, b) => {
+                  return getCategorySortWeight(a) - getCategorySortWeight(b);
+                });
+
+                return (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #22c55e' }} className="excel-table">
+                    <thead>
+                      <tr>
+                        <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc' }}>Filling Type</th>
+                        {sortedCategories.map(cat => (
+                          <th key={cat} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc', textTransform: 'uppercase' }}>{cat}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>Box</td>
+                        {sortedCategories.map(cat => (
+                          <td key={cat} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>
+                            {categorySummary[cat]}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                );
+              })()}
               
               {/* Footer / Notes Row */}
               <div style={{ display: 'flex', minHeight: '150px' }}>

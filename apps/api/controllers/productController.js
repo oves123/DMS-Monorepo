@@ -59,6 +59,10 @@ exports.getProducts = async (req, res) => {
             ORDER BY p.name, v.pack_size
         `);
 
+        // Determine if we need to apply retailer rate logic
+        const userRateType = req.user ? req.user.rate_type : 'distributor';
+        const isRetailer = userRateType === 'retailer';
+
         // Group the flat SQL result into a nested JSON structure
         const productsMap = {};
         result.recordset.forEach(row => {
@@ -79,7 +83,7 @@ exports.getProducts = async (req, res) => {
                     pack_size: row.pack_size,
                     uom: row.uom,
                     pieces_per_box: row.pieces_per_box,
-                    distributor_rate: row.distributor_rate,
+                    distributor_rate: isRetailer ? row.retailer_rate : row.distributor_rate,
                     retailer_rate: row.retailer_rate,
                     mrp: row.mrp
                 });
@@ -160,7 +164,7 @@ exports.updateProductVariant = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const variant_id = req.params.variant_id;
-        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, gst_percent } = req.body;
+        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, gst_percent, mrp } = req.body;
 
         await transaction.begin();
         const request = new sql.Request(transaction);
@@ -211,10 +215,11 @@ exports.updateProductVariant = async (req, res) => {
         request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_r', sql.Decimal(10,2), distributor_rate);
         request.input('ret_r', sql.Decimal(10,2), retailer_rate);
+        request.input('mrp', sql.Decimal(10,2), mrp || 0);
         
         await request.query(`
             UPDATE ProductVariants
-            SET uom = @uom, pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r
+            SET uom = @uom, pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r, mrp = @mrp
             WHERE variant_id = @var_id
         `);
 
@@ -278,15 +283,16 @@ exports.bulkUploadProducts = async (req, res) => {
         try {
             for (const row of rows) {
                 // Handle different possible key names from CSV
-                const category_name = row['Category'] || row['category_name'] || null;
-                const product_name = row['Product Name'] || row['product_name'] || row['name'];
-                const hsn_code = row['HSN Code'] || row['hsn_code'] || null;
+                const category_name = row['PRODUCT CATEGORY'] || row['Category'] || row['category_name'] || null;
+                const product_name = row['PRODUCT NAME'] || row['Product Name'] || row['product_name'] || row['name'];
+                const hsn_code = row['HSN CODE'] || row['HSN Code'] || row['hsn_code'] || null;
                 const uom = row['UOM'] || row['uom'] || 'Box';
-                const pack_size = row['Pack Size'] || row['pack_size'];
-                const pieces_per_box = row['Pieces Per Box'] || row['pieces_per_box'] || parsePiecesFromPackSize(pack_size);
-                const distributor_rate = row['Distributor Rate'] || row['distributor_rate'];
-                const retailer_rate = row['Retailer Rate'] || row['retailer_rate'];
-                const mrp = row['MRP'] || row['mrp'] || 0;
+                const pack_size = row['Packing'] || row['Pack Size'] || row['pack_size'];
+                const pieces_per_box = row['PCS IN Box/Bag'] || row['Pieces Per Box'] || row['pieces_per_box'] || parsePiecesFromPackSize(pack_size);
+                const distributor_rate = row['DB RATE WITHOUT GST'] || row['Distributor Rate'] || row['distributor_rate'];
+                const retailer_rate = row['RT RATE WITHOUT GST'] || row['Retailer Rate'] || row['retailer_rate'];
+                const mrp = row['MRP-NEW'] || row['MRP'] || row['mrp'] || 0;
+                const gst_rate = row['GST Rate'] || row['GST'] || row['gst_percent'] || 0;
                 
                 if (!product_name || !pack_size || distributor_rate == null || retailer_rate == null) {
                     skipCount++;
@@ -319,7 +325,7 @@ exports.bulkUploadProducts = async (req, res) => {
                     pReq.input('cat_id', sql.Int, categoryId);
                     pReq.input('hsn', sql.VarChar, hsn_code);
                     pReq.input('uom', sql.VarChar, uom);
-                    pReq.input('gst', sql.Decimal(5,2), 0);
+                    pReq.input('gst', sql.Decimal(5,2), parseFloat(String(gst_rate).replace('%', '')) || 0);
                     const newProd = await pReq.query(`
                         INSERT INTO Products (category_id, name, hsn_code, uom, gst_percent)
                         OUTPUT INSERTED.product_id

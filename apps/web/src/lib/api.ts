@@ -23,10 +23,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear local storage and redirect to login if token is invalid/expired
-      localStorage.removeItem('dms_token');
-      localStorage.removeItem('dms_user');
-      window.location.href = '/login';
+      // Clear local storage and redirect to home (login) if token is invalid/expired
+      // Skip this if the request was actually to the login endpoint, so we can show the error message
+      if (!error.config.url.includes('/api/auth/login')) {
+        localStorage.removeItem('dms_token');
+        localStorage.removeItem('dms_user');
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

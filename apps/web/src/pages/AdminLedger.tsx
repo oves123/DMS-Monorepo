@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import api from '../lib/api';
 import InvoiceModal from '../components/InvoiceModal';
-import { Search, Filter, Trash2, CreditCard, ChevronRight, ChevronDown } from 'lucide-react';
+import CreditNoteModal from '../components/CreditNoteModal';
+import { Search, Filter, Trash2, CreditCard, ChevronRight, ChevronDown, Download, PlusCircle } from 'lucide-react';
 import { useToast } from '../components/Toast';
 
 const AdminLedger = () => {
@@ -28,6 +29,9 @@ const AdminLedger = () => {
     payment_date: new Date().toISOString().split('T')[0]
   });
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // Credit Note Modal State
+  const [creditNoteDistributor, setCreditNoteDistributor] = useState<any>(null);
 
   useEffect(() => {
     fetchLedger();
@@ -80,6 +84,8 @@ const AdminLedger = () => {
       setIsSubmittingPayment(false);
     }
   };
+
+
 
   const toggleExpand = (distId: number) => {
     setExpandedDistributors(prev => ({ ...prev, [distId]: !prev[distId] }));
@@ -252,26 +258,90 @@ const AdminLedger = () => {
                           <td style={{ padding: '12px', color: '#059669', fontWeight: 600 }}>₹{dist.total_paid.toFixed(2)}</td>
                           <td style={{ padding: '12px', color: '#dc2626', fontWeight: 600 }}>₹{dist.total_pending.toFixed(2)}</td>
                           <td style={{ padding: '12px', textAlign: 'right' }}>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setBulkPaymentDistributor(dist); }}
-                              disabled={dist.total_pending <= 0.01}
-                              style={{
-                                background: dist.total_pending <= 0.01 ? '#e2e8f0' : '#10b981',
-                                border: 'none',
-                                color: dist.total_pending <= 0.01 ? '#94a3b8' : '#fff',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                cursor: dist.total_pending <= 0.01 ? 'not-allowed' : 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}
-                            >
-                              <CreditCard size={14} /> 
-                              {dist.total_pending <= 0.01 ? 'Fully Paid' : 'Record Payment'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const handleDownload = async () => {
+                                    try {
+                                      const res = await api.get(`/api/ledger/payment/distributor/${dist.distributor_id}/download`, {
+                                        responseType: 'blob'
+                                      });
+                                      const url = window.URL.createObjectURL(new Blob([res.data]));
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.setAttribute('download', `Ledger_${dist.firm_name.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      link.remove();
+                                    } catch (err) {
+                                      console.error("Download failed", err);
+                                      alert("Failed to download ledger statement.");
+                                    }
+                                  };
+                                  handleDownload();
+                                }}
+                                style={{
+                                  background: '#fff',
+                                  border: '1px solid #cbd5e1',
+                                  color: '#334155',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}
+                                title="Download Statement of Account"
+                              >
+                                <Download size={14} /> 
+                                Statement
+                              </button>
+
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setCreditNoteDistributor(dist); }}
+                                style={{
+                                  background: '#fff',
+                                  border: '1px solid #cbd5e1',
+                                  color: '#334155',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}
+                                title="Issue Credit Note"
+                              >
+                                <PlusCircle size={14} /> 
+                                Credit Note
+                              </button>
+
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setBulkPaymentDistributor(dist); }}
+                                disabled={dist.total_pending <= 0.01}
+                                style={{
+                                  background: dist.total_pending <= 0.01 ? '#e2e8f0' : '#10b981',
+                                  border: 'none',
+                                  color: dist.total_pending <= 0.01 ? '#94a3b8' : '#fff',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  cursor: dist.total_pending <= 0.01 ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}
+                              >
+                                <CreditCard size={14} /> 
+                                {dist.total_pending <= 0.01 ? 'Fully Paid' : 'Record Payment'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
 
@@ -369,7 +439,7 @@ const AdminLedger = () => {
                   <input 
                     type="number" 
                     step="0.01" 
-                    max={bulkPaymentDistributor.total_pending}
+                    max={bulkPaymentDistributor.total_pending.toFixed(2)}
                     value={bulkPaymentForm.amount} 
                     onChange={(e) => setBulkPaymentForm({...bulkPaymentForm, amount: e.target.value})} 
                     required 
@@ -422,6 +492,18 @@ const AdminLedger = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Credit Note Modal */}
+      {creditNoteDistributor && (
+        <CreditNoteModal
+          distributor={creditNoteDistributor}
+          onClose={() => setCreditNoteDistributor(null)}
+          onSuccess={() => {
+            setCreditNoteDistributor(null);
+            fetchLedger();
+          }}
+        />
       )}
 
     </div>
