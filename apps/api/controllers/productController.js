@@ -47,15 +47,17 @@ exports.addCategory = async (req, res) => {
 // GET /api/products
 exports.getProducts = async (req, res) => {
     try {
-        // We need to fetch Products and their variants, joined with Categories
+        // We need to fetch Products and their variants, joined with Categories and Inventory
         const result = await new sql.Request().query(`
             SELECT 
                 p.product_id, p.name as product_name, p.hsn_code, p.gst_percent,
                 c.category_id, c.name as category_name,
-                v.variant_id, v.pack_size, v.uom, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp
+                v.variant_id, v.pack_size, v.uom, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp,
+                ISNULL(i.current_stock_qty, 0) as current_stock
             FROM Products p
             LEFT JOIN Categories c ON p.category_id = c.category_id
             LEFT JOIN ProductVariants v ON p.product_id = v.product_id
+            LEFT JOIN Inventory i ON v.variant_id = i.variant_id
             ORDER BY p.name, v.pack_size
         `);
 
@@ -85,7 +87,8 @@ exports.getProducts = async (req, res) => {
                     pieces_per_box: row.pieces_per_box,
                     distributor_rate: isRetailer ? row.retailer_rate : row.distributor_rate,
                     retailer_rate: row.retailer_rate,
-                    mrp: row.mrp
+                    mrp: row.mrp,
+                    current_stock: row.current_stock
                 });
             }
         });

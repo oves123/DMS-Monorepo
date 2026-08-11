@@ -173,22 +173,7 @@ const AdminSettings = () => {
                   />
                 </div>
                 
-                <div className="form-group" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
-                  <h3 style={{ fontSize: '18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b', borderTop: '1px solid var(--border-color)', paddingTop: '24px' }}>
-                    Distributor Settings
-                  </h3>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '14px', color: '#475569' }}>Defect Claim Window (Days)</label>
-                  <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px' }}>How many days after order execution can a distributor file a defect claim?</p>
-                  <input
-                    type="number"
-                    name="claim_window_days"
-                    value={settings.claim_window_days}
-                    onChange={handleInputChange}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
-                    min="1"
-                    required
-                  />
-                </div>
+
               </div>
             </div>
 

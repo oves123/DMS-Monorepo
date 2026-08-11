@@ -77,14 +77,18 @@ const AdminCreateOrder = () => {
   const updateCart = (variant: any, delta: number, productName?: string) => {
     setCart(prev => {
       const current = prev[variant.variant_id]?.qty || 0;
-      const next = current + delta;
+      let next = current + delta;
+      
+      const maxStock = variant.current_stock || 0;
+      if (next > maxStock && delta > 0) {
+        next = maxStock; // Cap at max stock
+      }
       
       const newCart = { ...prev };
       
       if (next <= 0) {
         delete newCart[variant.variant_id];
       } else {
-        // Use the selected pricing tier
         const price = pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate;
         newCart[variant.variant_id] = { 
           qty: next, 
@@ -101,12 +105,17 @@ const AdminCreateOrder = () => {
   const handleQtyChange = (variant: any, nextQty: number, productName?: string) => {
     setCart(prev => {
       const newCart = { ...prev };
-      if (nextQty <= 0 || isNaN(nextQty)) {
+      const maxStock = variant.current_stock || 0;
+      
+      let finalQty = nextQty;
+      if (finalQty > maxStock) finalQty = maxStock;
+
+      if (finalQty <= 0 || isNaN(finalQty)) {
         delete newCart[variant.variant_id];
       } else {
         const price = pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate;
         newCart[variant.variant_id] = { 
-          qty: nextQty, 
+          qty: finalQty, 
           variant, 
           price,
           product_name: productName || prev[variant.variant_id]?.product_name || 'Unknown Product'
@@ -286,6 +295,7 @@ const AdminCreateOrder = () => {
                       <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PRODUCT / VARIANT</th>
                       <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PACK SIZE</th>
                       <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px' }}>PRICE</th>
+                      <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>AVAILABLE STOCK</th>
                       <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#64748b', fontWeight: 600, fontSize: '13px', textAlign: 'center' }}>QTY</th>
                     </tr>
                   </thead>
@@ -302,7 +312,7 @@ const AdminCreateOrder = () => {
                           style={{ background: '#f1f5f9', cursor: 'pointer', borderBottom: '1px solid #e2e8f0' }}
                           onClick={() => toggleExpand(p.product_id)}
                         >
-                          <td colSpan={4} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
+                          <td colSpan={5} style={{ padding: '10px 12px', fontWeight: 'bold', color: '#0f172a', fontSize: '14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               <span style={{ display: 'inline-block', width: '16px', color: '#64748b', textAlign: 'center' }}>
                                 {isExpanded ? '▼' : '▶'}
@@ -335,10 +345,14 @@ const AdminCreateOrder = () => {
                               <td style={{ padding: '8px 12px', color: 'var(--primary)', fontWeight: 600, fontSize: '13px' }}>
                                 ₹{price} <span style={{fontSize: '11px', color: '#94a3b8', fontWeight: 'normal', marginLeft: '4px'}}>(MRP: ₹{v.mrp})</span>
                               </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 'bold', color: (v.current_stock || 0) > 0 ? '#10b981' : '#ef4444' }}>
+                                {v.current_stock || 0}
+                              </td>
                               <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                                 <input 
                                   type="number"
                                   min="0"
+                                  max={v.current_stock || 0}
                                   value={qty}
                                   onChange={(e) => handleQtyChange(v, parseInt(e.target.value) || 0, p.name)}
                                   style={{ width: '70px', padding: '6px 8px', border: '1px solid var(--border-color)', borderRadius: '4px', textAlign: 'center', outline: 'none' }}
