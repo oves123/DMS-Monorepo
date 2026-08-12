@@ -1,67 +1,67 @@
 {
-  "hash": "f756ee27",
+  "hash": "1d0ea3b0",
   "configHash": "f8e58a13",
-  "lockfileHash": "b7120d3f",
-  "browserHash": "ac95899c",
+  "lockfileHash": "a49c8db7",
+  "browserHash": "464df371",
   "optimized": {
     "axios": {
       "src": "../../../../node_modules/axios/index.js",
       "file": "axios.js",
-      "fileHash": "d3bd1383",
+      "fileHash": "a7a06e01",
       "needsInterop": false
     },
     "lucide-react": {
       "src": "../../../../node_modules/lucide-react/dist/esm/lucide-react.mjs",
       "file": "lucide-react.js",
-      "fileHash": "fa7e0785",
+      "fileHash": "e4616a91",
       "needsInterop": false
     },
     "papaparse": {
       "src": "../../../../node_modules/papaparse/papaparse.min.js",
       "file": "papaparse.js",
-      "fileHash": "c3fd9737",
+      "fileHash": "e63d1a1f",
       "needsInterop": true
     },
     "react-dom": {
       "src": "../../../../node_modules/react-dom/index.js",
       "file": "react-dom.js",
-      "fileHash": "f4d0ac79",
+      "fileHash": "ec02c5e6",
       "needsInterop": true
     },
     "react-dom/client": {
       "src": "../../../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "e4eddbce",
+      "fileHash": "887eefc2",
       "needsInterop": true
     },
     "react-router-dom": {
       "src": "../../../../node_modules/react-router-dom/dist/index.mjs",
       "file": "react-router-dom.js",
-      "fileHash": "42c07ac4",
+      "fileHash": "ebb93569",
       "needsInterop": false
     },
     "react": {
       "src": "../../../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "88f8b695",
+      "fileHash": "d3843e71",
       "needsInterop": true
     },
     "react/jsx-dev-runtime": {
       "src": "../../../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "c288d739",
+      "fileHash": "0fb3e9f1",
       "needsInterop": true
     },
     "react/jsx-runtime": {
       "src": "../../../../node_modules/react/jsx-runtime.js",
       "file": "react_jsx-runtime.js",
-      "fileHash": "f034b9ff",
+      "fileHash": "04624374",
       "needsInterop": true
     },
     "recharts": {
       "src": "../../../../node_modules/recharts/es6/index.js",
       "file": "recharts.js",
-      "fileHash": "dfe828d7",
+      "fileHash": "38bc1c2b",
       "needsInterop": false
     }
   },

@@ -8,6 +8,7 @@ import AdminDistributors from './pages/AdminDistributors';
 import AdminInventory from './pages/AdminInventory';
 import AdminOrders from './pages/AdminOrders';
 import AdminCreateOrder from './pages/AdminCreateOrder';
+import AdminEditOrder from './pages/AdminEditOrder';
 import AdminLedger from './pages/AdminLedger';
 import AdminReports from './pages/AdminReports';
 import AdminClaims from './pages/AdminClaims';
@@ -40,6 +41,7 @@ function App() {
             <Route path="/admin/inventory" element={<AdminInventory />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
             <Route path="/admin/orders/create" element={<AdminCreateOrder />} />
+            <Route path="/admin/orders/edit/:id" element={<AdminEditOrder />} />
             <Route path="/admin/distributors" element={<AdminDistributors />} />
             <Route path="/admin/ledger" element={<AdminLedger />} />
             <Route path="/admin/claims" element={<AdminClaims />} />

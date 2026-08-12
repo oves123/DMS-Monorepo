@@ -343,3 +343,53 @@ exports.getDistributorOrders = async (req, res) => {
         res.status(500).json({ message: 'Server Error' });
     }
 };
+
+// PUT /api/orders/:id
+// Admin updates a pending order
+exports.updateOrder = async (req, res) => {
+    const transaction = new sql.Transaction();
+    try {
+        const orderId = req.params.id;
+        const { items } = req.body; // items is an array of { variant_id, requested_qty, price_at_order }
+        
+        await transaction.begin();
+
+        // 1. Check if order is PENDING
+        const checkReq = new sql.Request(transaction);
+        checkReq.input('order_id', sql.Int, orderId);
+        const checkRes = await checkReq.query(`SELECT status FROM Orders WHERE order_id = @order_id`);
+        if (checkRes.recordset.length === 0) {
+            throw new Error('Order not found');
+        }
+        if (checkRes.recordset[0].status !== 'PENDING') {
+            throw new Error('Only PENDING orders can be edited');
+        }
+
+        // 2. Delete existing OrderItems
+        const delReq = new sql.Request(transaction);
+        delReq.input('order_id', sql.Int, orderId);
+        await delReq.query(`DELETE FROM OrderItems WHERE order_id = @order_id`);
+
+        // 3. Insert new OrderItems
+        for (let item of items) {
+            const itemReq = new sql.Request(transaction);
+            itemReq.input('order_id', sql.Int, orderId);
+            itemReq.input('variant_id', sql.Int, item.variant_id);
+            itemReq.input('req_qty', sql.Int, item.requested_qty);
+            itemReq.input('price', sql.Decimal(10,2), item.price_at_order);
+
+            await itemReq.query(`
+                INSERT INTO OrderItems (order_id, variant_id, requested_qty, price_at_order)
+                VALUES (@order_id, @variant_id, @req_qty, @price)
+            `);
+        }
+
+        await transaction.commit();
+        res.json({ message: 'Order updated successfully', order_id: orderId });
+    } catch (err) {
+        console.error(err);
+        await transaction.rollback();
+        res.status(500).json({ message: err.message || 'Failed to update order' });
+    }
+};
+

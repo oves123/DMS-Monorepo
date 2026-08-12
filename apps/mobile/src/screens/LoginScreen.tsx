@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, Text, View, TextInput, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Alert 
+  KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Image
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
   Login: undefined;
-  Dashboard: undefined;
+  MainTabs: undefined;
 };
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
@@ -21,10 +22,12 @@ export default function LoginScreen({ navigation }: Props) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogin = async () => {
+    setError('');
     if (!phoneNumber || !password) {
-      alert('Please enter both phone number and password.');
+      setError('Please enter both phone number and password.');
       return;
     }
     
@@ -39,13 +42,14 @@ export default function LoginScreen({ navigation }: Props) {
       const data = await response.json();
       
       if (response.ok) {
-        // Navigate to Dashboard instead of alert
-        navigation.replace('Dashboard');
+        await AsyncStorage.setItem('dms_token', data.token);
+        await AsyncStorage.setItem('dms_user', JSON.stringify(data.user));
+        navigation.replace('MainTabs');
       } else {
-        alert(data.message || 'Login failed');
+        setError(data.message || 'Login failed');
       }
-    } catch (error) {
-      alert('Network Error. Is the backend running?');
+    } catch (err) {
+      setError('Network Error. Is the backend running?');
     } finally {
       setIsLoading(false);
     }
@@ -57,42 +61,50 @@ export default function LoginScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>DMS</Text>
+        <View style={styles.loginContainer}>
+          <View style={styles.logoContainer}>
+            <Image 
+              source={require('../../assets/logo.png')} 
+              style={styles.logoImage} 
+            />
+            <Text style={styles.subtitle}>Sign in to your distribution account</Text>
           </View>
-          <Text style={styles.title}>Distributor Portal</Text>
-          <Text style={styles.subtitle}>Sign in to manage your orders</Text>
-        </View>
 
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 7208539551"
-            placeholderTextColor="#9ca3af"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            autoCapitalize="none"
-          />
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor="#9ca3af"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your phone number"
+              placeholderTextColor="#9ca3af"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+              editable={!isLoading}
+            />
+          </View>
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password"
+              placeholderTextColor="#9ca3af"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              editable={!isLoading}
+            />
+          </View>
 
           <TouchableOpacity 
-            style={styles.loginButton} 
+            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
             onPress={handleLogin}
             disabled={isLoading}
           >
@@ -104,7 +116,7 @@ export default function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </SafeAreaView>
   );
 }
@@ -112,102 +124,89 @@ export default function LoginScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f3f4f6',
   },
   keyboardView: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 20,
+  },
+  loginContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    backgroundColor: '#ffffff',
+    padding: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 16,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logoText: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
+  logoImage: {
+    height: 90,
+    width: '100%',
+    resizeMode: 'contain',
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#64748b',
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
   },
-  formContainer: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  inputGroup: {
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 8,
-    marginLeft: 4,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 6,
   },
   input: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    padding: 16,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     fontSize: 15,
-    color: '#0f172a',
-    marginBottom: 20,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    color: '#2563eb',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#111827',
   },
   loginButton: {
     backgroundColor: '#2563eb',
-    borderRadius: 10,
-    padding: 16,
+    borderRadius: 8,
+    padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2563eb',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 10,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    fontSize: 15,
+    fontWeight: '600',
   },
+  errorContainer: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fee2e2',
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 14,
+    textAlign: 'center',
+  }
 });

@@ -433,8 +433,12 @@ const AdminOrders = () => {
                           </button>
                         </>
                       ) : (
-                        <button className="primary-btn" onClick={() => {
-                          setExecutingOrderId(order.order_id);
+                        <>
+                          <button className="secondary-btn" onClick={() => navigate(`/admin/orders/edit/${order.order_id}`)} style={{ marginRight: '10px' }}>
+                            Edit Order
+                          </button>
+                          <button className="primary-btn" onClick={() => {
+                            setExecutingOrderId(order.order_id);
                           const defaultQts: Record<number, number> = {};
                           let orderTotal = 0;
                           order.items.forEach((item: any) => {
@@ -456,6 +460,7 @@ const AdminOrders = () => {
                               setCreditApplied(0);
                           }
                         }}>Process Order</button>
+                        </>
                       )}
                     </div>
                   </div>

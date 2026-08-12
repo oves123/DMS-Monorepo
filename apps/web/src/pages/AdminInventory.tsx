@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import api from '../lib/api';
 import { Search, Filter, Package } from 'lucide-react';
+import { useToast } from '../components/Toast';
+import { useAutoSave, useNavigationWarning } from '../hooks/useAutoSave';
 
 const AdminInventory = () => {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -9,8 +11,12 @@ const AdminInventory = () => {
   const [error, setError] = useState('');
   
   // Inline Editing State
-  const [editingCell, setEditingCell] = useState<{ variantId: number, field: 'stock' | 'threshold' } | null>(null);
-  const [editValue, setEditValue] = useState('');
+  const [editingCell, setEditingCell, clearEditingCell] = useAutoSave<{ variantId: number, field: 'stock' | 'threshold' } | null>('admin_inventory_editing_cell', null);
+  const [editValue, setEditValue, clearEditValue] = useAutoSave<string>('admin_inventory_edit_value', '');
+  const { showToast } = useToast();
+
+  // Warn if they are in the middle of editing
+  useNavigationWarning(editingCell !== null);
 
   // Pagination, Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,24 +56,31 @@ const AdminInventory = () => {
     setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
   };
 
-  const handleInlineSave = async (variantId: number, field: 'stock' | 'threshold') => {
+  const handleInlineSave = async (variantId: number, field: 'stock' | 'threshold', currentStock?: number) => {
     if (editValue === '') {
       setEditingCell(null);
+      clearEditingCell();
       return;
     }
 
     try {
       const payload: any = {};
-      if (field === 'stock') payload.current_stock = editValue;
+      if (field === 'stock') {
+        const addedStock = parseInt(editValue, 10) || 0;
+        payload.current_stock = (currentStock || 0) + addedStock;
+      }
       if (field === 'threshold') payload.low_stock_threshold = editValue;
 
       await api.put(`/api/inventory/inline/${variantId}`, payload);
       
       setEditingCell(null);
+      clearEditingCell();
       setEditValue('');
-      fetchInventory(); // Refresh to get updated data
-    } catch (err) {
-      setError('Failed to update value');
+      clearEditValue();
+      showToast('Successfully updated', 'success');
+      await fetchInventory();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to update', 'error');
     }
   };
 
@@ -333,25 +346,35 @@ const AdminInventory = () => {
                               
                               <td 
                                 onClick={() => {
-                                  setEditingCell({ variantId: item.variant_id, field: 'stock' });
-                                  setEditValue(item.current_stock.toString());
+                                  if (editingCell?.variantId !== item.variant_id || editingCell?.field !== 'stock') {
+                                    setEditingCell({ variantId: item.variant_id, field: 'stock' });
+                                    setEditValue('');
+                                  }
                                 }}
                                 style={{ cursor: 'pointer', position: 'relative', textAlign: 'center' }}
-                                title="Click to quickly edit stock"
+                                title="Click to add new stock"
                               >
                                 {editingCell?.variantId === item.variant_id && editingCell?.field === 'stock' ? (
-                                  <input 
-                                    type="number"
-                                    autoFocus
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={() => handleInlineSave(item.variant_id, 'stock')}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleInlineSave(item.variant_id, 'stock');
-                                      if (e.key === 'Escape') setEditingCell(null);
-                                    }}
-                                    style={{ width: '80px', padding: '6px', border: '2px solid var(--primary)', borderRadius: '4px', outline: 'none' }}
-                                  />
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <span style={{ color: '#64748b', fontSize: '13px', fontWeight: 600 }}>{item.current_stock} +</span>
+                                    <input 
+                                      type="number"
+                                      autoFocus
+                                      placeholder="New"
+                                      value={editValue}
+                                      onChange={(e) => setEditValue(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleInlineSave(item.variant_id, 'stock', item.current_stock);
+                                        if (e.key === 'Escape') {
+                                            setEditingCell(null);
+                                            clearEditingCell();
+                                            setEditValue('');
+                                            clearEditValue();
+                                          }
+                                      }}
+                                      style={{ width: '60px', padding: '6px', border: '2px solid var(--primary)', borderRadius: '4px', outline: 'none' }}
+                                    />
+                                  </div>
                                 ) : (
                                   <div style={{ display: 'flex', justifyContent: 'center' }}>
                                   <span style={{ 
@@ -390,10 +413,14 @@ const AdminInventory = () => {
                                     autoFocus
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={() => handleInlineSave(item.variant_id, 'threshold')}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') handleInlineSave(item.variant_id, 'threshold');
-                                      if (e.key === 'Escape') setEditingCell(null);
+                                      if (e.key === 'Escape') {
+                                        setEditingCell(null);
+                                        clearEditingCell();
+                                        setEditValue('');
+                                        clearEditValue();
+                                      }
                                     }}
                                     style={{ width: '80px', padding: '6px', border: '2px solid #f59e0b', borderRadius: '4px', outline: 'none' }}
                                   />

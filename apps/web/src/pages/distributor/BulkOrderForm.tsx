@@ -3,6 +3,7 @@ import api from '../../lib/api';
 import { useToast } from '../../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import { Search, Package, Trash2, X } from 'lucide-react';
+import { useAutoSave, useNavigationWarning } from '../../hooks/useAutoSave';
 
 const BulkOrderForm = () => {
   const [catalog, setCatalog] = useState<any[]>([]);
@@ -12,8 +13,10 @@ const BulkOrderForm = () => {
   const navigate = useNavigate();
 
   // orderData maps variant_id to quantity
-  const [orderData, setOrderData] = useState<Record<number, number>>({});
+  const [orderData, setOrderData, clearOrderData] = useAutoSave<Record<number, number>>('distributor_order_cart', {});
   const [submitting, setSubmitting] = useState(false);
+  
+  useNavigationWarning(Object.keys(orderData).length > 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -137,11 +140,12 @@ const BulkOrderForm = () => {
         items,
         apply_wallet: applyWallet ? 1 : 0
       });
-
+      
       showToast('Order placed successfully!', 'success');
-      setOrderData({});
+      clearOrderData();
+      setShowPreviewModal(false);
       navigate('/distributor/orders');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       showToast('Failed to place order.', 'error');
     } finally {

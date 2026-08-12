@@ -239,8 +239,6 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                       </tr>
                     );
                   })}
-                </tbody>
-                <tfoot>
                   <tr>
                     <td colSpan={4} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                       TOTAL
@@ -248,15 +246,16 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold', color: '#ef4444' }}>
                       {data.items.reduce((sum: number, item: any) => sum + item.executed_qty, 0)}
                     </td>
-                    <td style={{ border: '1px solid #000', padding: '4px' }}></td>
+                    <td colSpan={2} style={{ border: '1px solid #000', padding: '4px' }}></td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {(data.invoice.subtotal || 0).toFixed(2)}
-                    </td>
-                    <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                       {(data.invoice.cgst_amount || 0).toFixed(2)}
                     </td>
-                    <td colSpan={2} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                    <td style={{ border: '1px solid #000', padding: '4px' }}></td>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                       {(data.invoice.sgst_amount || 0).toFixed(2)}
+                    </td>
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                      {(data.invoice.subtotal || 0).toFixed(2)}
                     </td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                       {((data.invoice.grand_total || 0) + (data.invoice.extra_discount || 0) + (data.invoice.credit_applied || 0)).toFixed(2)}
@@ -285,16 +284,16 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                         </tr>
                       )}
                       <tr>
-                        <td colSpan={11} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                          FINAL PAYABLE
+                        <td colSpan={11} style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
+                          FINAL PAYABLE AMOUNT
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f1f5f9', color: '#2563eb' }}>
                           {(data.invoice.grand_total || 0).toFixed(2)}
                         </td>
                       </tr>
                     </>
                   )}
-                </tfoot>
+                </tbody>
               </table>
               
               {/* Category Summary Table */}

@@ -1,20 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
-import { Search, ShoppingCart, User, Settings2, Filter, Package, Trash2 } from 'lucide-react';
+import { Search, ShoppingCart, User, Settings2, Filter, Package, Trash2, ArrowLeft } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAutoSave, useNavigationWarning } from '../hooks/useAutoSave';
 
-const AdminCreateOrder = () => {
+const AdminEditOrder = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   
-  const [selectedClient, setSelectedClient, clearClient] = useAutoSave<any>('admin_create_order_client', null);
+  const [selectedClient, setSelectedClient, clearClient] = useAutoSave<any>(`admin_edit_order_${id}_client`, null);
   const [pricingTier, setPricingTier] = useState<'distributor' | 'retailer'>('distributor');
   
-  const [cart, setCart, clearCart] = useAutoSave<{ [key: number]: { qty: number, variant: any, price: number, product_name?: string } }>('admin_create_order_cart', {});
+  const [cart, setCart, clearCart] = useAutoSave<{ [key: number]: { qty: number, variant: any, price: number, product_name?: string } }>(`admin_edit_order_${id}_cart`, {});
   
-  // Warn if cart has items
-  useNavigationWarning(Object.keys(cart).length > 0);
+  // Track if initial load is done so we don't warn immediately if the cart has items from the DB
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Warn if cart has been changed since initial load
+  useNavigationWarning(hasChanges);
   
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,9 +39,10 @@ const AdminCreateOrder = () => {
 
   const fetchData = async () => {
     try {
-      const [distRes, prodRes] = await Promise.all([
+      const [distRes, prodRes, ordersRes] = await Promise.all([
         api.get('/api/distributors'),
-        api.get('/api/products') // The default fetch uses the admin's rate type (which is likely default distributor). We will manually use the variant.distributor_rate or variant.retailer_rate based on the UI toggle.
+        api.get('/api/products'),
+        api.get('/api/orders/admin')
       ]);
       setClients(distRes.data);
       
@@ -59,6 +66,46 @@ const AdminCreateOrder = () => {
       }));
 
       setProducts(sortedProducts);
+      
+      // Find the order
+      const order = ordersRes.data.find((o: any) => o.order_id.toString() === id);
+      if (order) {
+        // Set client
+        const client = distRes.data.find((c: any) => c.firm_name === order.distributor_name);
+        setSelectedClient(client);
+        if (client) {
+            setPricingTier(client.rate_type || 'distributor');
+        }
+        
+        // Populate cart
+        const initialCart: any = {};
+        order.items.forEach((item: any) => {
+            // Find full variant object from products
+            let fullVariant = null;
+            sortedProducts.forEach((p: any) => {
+                const v = p.variants.find((vari: any) => vari.variant_id === item.variant_id);
+                if (v) fullVariant = v;
+            });
+            
+            if (fullVariant) {
+                initialCart[item.variant_id] = {
+                    qty: item.requested_qty,
+                    variant: fullVariant,
+                    price: item.price_at_order,
+                    product_name: item.product_name
+                };
+            }
+        });
+        
+        // Only set cart if we didn't load from local storage
+        if (Object.keys(cart).length === 0) {
+            setCart(initialCart);
+        }
+      } else {
+        showToast('Order not found', 'error');
+        navigate('/admin/orders');
+      }
+
     } catch (err) {
       showToast('Failed to load data', 'error');
     } finally {
@@ -102,6 +149,7 @@ const AdminCreateOrder = () => {
         };
       }
       
+      setHasChanges(true);
       return newCart;
     });
   };
@@ -125,6 +173,7 @@ const AdminCreateOrder = () => {
           product_name: productName || prev[variant.variant_id]?.product_name || 'Unknown Product'
         };
       }
+      setHasChanges(true);
       return newCart;
     });
   };
@@ -169,7 +218,7 @@ const AdminCreateOrder = () => {
     setExpandedProducts(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handlePlaceOrder = async () => {
+  const handleSaveOrder = async () => {
     if (!selectedClient) {
       showToast('Please select a client', 'error');
       return;
@@ -182,23 +231,21 @@ const AdminCreateOrder = () => {
 
     setIsSubmitting(true);
     try {
-      await api.post('/api/orders', {
-        distributor_id: selectedClient.user_id,
-        items: items.map(item => ({
+      await api.put(`/api/orders/${id}`, {
+        items: items.map((item: any) => ({
           variant_id: item.variant.variant_id,
           requested_qty: item.qty,
           price_at_order: item.price
-        })),
-        apply_wallet: false // Admin manual orders won't automatically deduct wallet right now, can be added later if needed
+        }))
       });
       
-      showToast('Order placed successfully!', 'success');
-      setCart({});
+      showToast('Order updated successfully!', 'success');
+      setHasChanges(false);
       clearCart();
-      setSelectedClient(null);
       clearClient();
+      navigate('/admin/orders');
     } catch (err: any) {
-      showToast(err.response?.data?.message || 'Failed to place order', 'error');
+      showToast(err.response?.data?.message || 'Failed to update order', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -212,8 +259,11 @@ const AdminCreateOrder = () => {
 
   return (
     <div>
-      <div className="page-header">
-        <h2 className="page-title">Create Manual Order</h2>
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <button onClick={() => navigate('/admin/orders')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', color: '#64748b' }}>
+            <ArrowLeft size={20} />
+        </button>
+        <h2 className="page-title" style={{ margin: 0 }}>Edit Order #{id}</h2>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px', alignItems: 'start' }}>
@@ -239,7 +289,8 @@ const AdminCreateOrder = () => {
                   <select 
                     value={selectedClient?.user_id || ''} 
                     onChange={e => handleClientChange(e.target.value)}
-                    style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                    disabled
+                    style={{ width: '100%', padding: '10px 12px 10px 36px', border: '1px solid var(--border-color)', borderRadius: '6px', background: '#f1f5f9', cursor: 'not-allowed' }}
                   >
                     <option value="">-- Choose Client --</option>
                     {clients.map(c => (
@@ -491,9 +542,9 @@ const AdminCreateOrder = () => {
               className="primary-btn" 
               style={{ width: '100%', padding: '12px', fontSize: '16px' }}
               disabled={!selectedClient || Object.values(cart).length === 0 || isSubmitting}
-              onClick={handlePlaceOrder}
+              onClick={handleSaveOrder}
             >
-              {isSubmitting ? 'Placing Order...' : 'Place Order'}
+              {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
             </button>
           </div>
         </div>
@@ -506,4 +557,4 @@ const AdminCreateOrder = () => {
   );
 };
 
-export default AdminCreateOrder;
+export default AdminEditOrder;

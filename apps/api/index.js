@@ -13,7 +13,7 @@ app.set('trust proxy', 'loopback');
 // Middleware
 // Restrict CORS to specific origins
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://localhost:5175', 'http://127.0.0.1:5173', 'http://127.0.0.1:5175'],
+    origin: '*',
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
