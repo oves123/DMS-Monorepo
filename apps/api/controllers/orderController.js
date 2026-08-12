@@ -393,3 +393,107 @@ exports.updateOrder = async (req, res) => {
     }
 };
 
+// POST /api/orders/:id/draft-pdf
+exports.generateDraftPdf = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const { items, credit_applied = 0, extra_discount = 0 } = req.body;
+        
+        // Fetch order and distributor details
+        const orderRes = await new sql.Request()
+            .input('order_id', sql.Int, orderId)
+            .query(`
+                SELECT o.order_id, o.order_date, u.firm_name, u.owner_name, u.address, u.fssai_number
+                FROM Orders o
+                JOIN Users u ON o.distributor_id = u.user_id
+                WHERE o.order_id = @order_id
+            `);
+            
+        if (orderRes.recordset.length === 0) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+        const orderDetails = orderRes.recordset[0];
+
+        const settingsRes = await new sql.Request().query(`SELECT * FROM CompanySettings WHERE setting_id = 1`);
+        const settings = settingsRes.recordset[0] || {};
+
+        let subtotal = 0;
+        let cgst = 0;
+        let sgst = 0;
+        
+        const invoiceItems = [];
+
+        for (let item of items) {
+            const priceRes = await new sql.Request()
+                .input('item_id', sql.Int, item.order_item_id)
+                .query(`
+                    SELECT oi.price_at_order, p.name as product_name, p.hsn_code, p.gst_percent, v.pack_size, v.uom, c.name as category_name
+                    FROM OrderItems oi
+                    JOIN ProductVariants v ON oi.variant_id = v.variant_id
+                    JOIN Products p ON v.product_id = p.product_id
+                    LEFT JOIN Categories c ON p.category_id = c.category_id
+                    WHERE oi.order_item_id = @item_id
+                `);
+                
+            if (priceRes.recordset.length > 0) {
+                const prod = priceRes.recordset[0];
+                const price = prod.price_at_order;
+                const gstPct = parseFloat(prod.gst_percent) || 0;
+                
+                const itemSubtotal = price * item.executed_qty;
+                subtotal += itemSubtotal;
+                
+                const halfGst = gstPct / 2;
+                cgst += itemSubtotal * (halfGst / 100);
+                sgst += itemSubtotal * (halfGst / 100);
+                
+                invoiceItems.push({
+                    category_name: prod.category_name,
+                    executed_qty: item.executed_qty,
+                    price_at_order: price,
+                    hsn_code: prod.hsn_code,
+                    product_name: prod.product_name,
+                    pack_size: prod.pack_size,
+                    uom: prod.uom
+                });
+            }
+        }
+
+        let grand_total = subtotal + cgst + sgst;
+        grand_total = grand_total - credit_applied - extra_discount;
+        if (grand_total < 0) grand_total = 0;
+        grand_total = Math.round(grand_total);
+        
+        const invoice = {
+            firm_name: orderDetails.firm_name,
+            owner_name: orderDetails.owner_name,
+            address: orderDetails.address,
+            fssai_number: orderDetails.fssai_number,
+            invoice_number: `DRAFT-${orderId}`,
+            created_at: new Date(),
+            subtotal,
+            cgst_amount: cgst,
+            sgst_amount: sgst,
+            grand_total,
+            extra_discount
+        };
+
+        const { generateInvoicePdf } = require('../services/pdfService');
+        const path = require('path');
+        const fs = require('fs');
+
+        const pdfUrl = await generateInvoicePdf({ invoice, items: invoiceItems }, settings);
+        
+        const pdfPath = path.join(__dirname, '../', pdfUrl);
+        if (fs.existsSync(pdfPath)) {
+            res.download(pdfPath, `Draft_Bill_${orderId}.pdf`);
+        } else {
+            res.status(500).json({ message: 'Failed to generate PDF file' });
+        }
+        
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message || 'Failed to generate draft bill' });
+    }
+};
+

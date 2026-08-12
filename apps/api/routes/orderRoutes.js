@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getAdminOrders, getDistributorOrders, createOrder, executeOrder, updateOrder } = require('../controllers/orderController');
+const { getAdminOrders, getDistributorOrders, createOrder, executeOrder, updateOrder, generateDraftPdf } = require('../controllers/orderController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 router.get('/admin', protect, adminOnly, getAdminOrders);
+router.post('/:id/draft-pdf', protect, adminOnly, generateDraftPdf);
 router.put('/:id/execute', protect, adminOnly, executeOrder);
 router.put('/:id', protect, adminOnly, updateOrder);
 

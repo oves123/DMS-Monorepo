@@ -1,3 +1,36 @@
+
+
+const CATEGORY_ORDER = {
+  'chips': 1,
+  'popcorn': 2,
+  'fryums': 3,
+  'namkeen': 4,
+  'kurkure': 5,
+  'choco bites': 6
+};
+
+const sortItemsByCategory = (items) => {
+  if (!items || !Array.isArray(items)) return items;
+  return [...items].sort((a, b) => {
+    const catA = a.category_name ? String(a.category_name).toLowerCase().trim() : '';
+    const catB = b.category_name ? String(b.category_name).toLowerCase().trim() : '';
+    const rankA = CATEGORY_ORDER[catA] || 99;
+    const rankB = CATEGORY_ORDER[catB] || 99;
+    return rankA - rankB;
+  });
+};
+
+function formatPackSize(packSize) {
+    if (!packSize) return '';
+    const match = String(packSize).match(/^(\d+)Rs/i);
+    if (match) {
+        const retailPrice = parseInt(match[1]);
+        if (retailPrice <= 20) {
+            return String(packSize).replace(/\s*\d+\s*(?:g|gm|kg)\s*$/i, '');
+        }
+    }
+    return packSize;
+}
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
@@ -36,20 +69,22 @@ async function generateInvoicePdf(invoiceData, settings) {
         <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; color: #000; font-size: 14px; background: #fff; margin: 0; padding: 20px; }
-            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #22c55e; }
+            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; }
             .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px; }
+            .excel-table tr { page-break-inside: avoid; }
+            tfoot { display: table-row-group; }
             h2 { margin: 0 0 2px 0; font-size: 18px; font-weight: bold; }
             p { margin: 0 0 2px 0; }
         </style>
     </head>
     <body>
-        <div style="border: 2px solid #22c55e;">
-            <div style="border-bottom: 2px solid #22c55e; text-align: center; font-weight: bold; font-size: 14px; padding: 4px;">
+        <div style="border: 2px solid #000;">
+            <div style="border-bottom: 2px solid #000; text-align: center; font-weight: bold; font-size: 14px; padding: 4px;">
                 TAX INVOICE
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000;">
                     <h2>Anand Enterprises</h2>
                     <p>Address : ${settings?.address || ''}</p>
                     <p>Mobile No. : ${settings?.mobile_number || ''} , State : ${settings?.state || ''}</p>
@@ -60,8 +95,8 @@ async function generateInvoicePdf(invoiceData, settings) {
                 </div>
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000;">
                     <p><strong>Bill To:</strong> ${invoice.firm_name}</p>
                     ${invoice.owner_name ? `<p>Owner Name: ${invoice.owner_name}</p>` : ''}
                     <p>Address: ${invoice.address}</p>
@@ -75,8 +110,8 @@ async function generateInvoicePdf(invoiceData, settings) {
                 </div>
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e; font-weight: bold;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000; font-weight: bold;">
                     BILL NO. : ${invoice.invoice_number}
                 </div>
                 <div style="flex: 1; padding: 4px 8px; font-weight: bold;">
@@ -89,7 +124,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                     <tr>
                         <th style="text-align: center; width: 30px;">#</th>
                         <th style="text-align: center; width: 50px;">HSN</th>
-                        <th style="text-align: left;">Item Name</th>
+                        <th style="text-align: left; width: 30%;">Item Name</th>
                         <th style="text-align: center; width: 50px;">UOM</th>
                         <th style="text-align: center; width: 40px;">Qty</th>
                         <th style="text-align: right; width: 50px;">Rate</th>
@@ -102,7 +137,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${items.map((item, idx) => {
+                    ${sortItemsByCategory(items).map((item, idx) => {
                         const taxableAmt = item.executed_qty * item.price_at_order;
                         const cgstRate = settings?.cgst_rate || 2.5;
                         const sgstRate = settings?.sgst_rate || 2.5;
@@ -114,7 +149,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                         <tr>
                             <td style="text-align: center;">${idx + 1}</td>
                             <td style="text-align: center;">${item.hsn_code || '-'}</td>
-                            <td style="font-weight: bold;">${item.product_name} - ${item.pack_size}</td>
+                            <td style="font-weight: bold;">${item.product_name} - ${formatPackSize(item.pack_size)}</td>
                             <td style="text-align: center;">${item.uom || 'Box'}</td>
                             <td style="text-align: center; font-weight: bold;">${item.executed_qty}</td>
                             <td style="text-align: right; font-weight: bold;">${item.price_at_order}</td>
@@ -169,14 +204,14 @@ async function generateInvoicePdf(invoiceData, settings) {
             </table>
             ` : ''}
             
-            <div style="display: flex; min-height: 150px;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e; font-size: 13px; font-weight: bold;">
+            <div style="display: flex; min-height: 150px; page-break-inside: avoid;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000; font-size: 13px; font-weight: bold;">
                     <p>Note:</p>
                     <p>1. Order By: ${invoice.owner_name || '-'}</p>
                     <p>2. Goods Check Before Received!</p>
                     <p>3. Subject to jurisdiction : Palghar</p>
                 </div>
-                <div style="width: 200px; display: flex; align-items: center; justify-content: center; border-right: 2px solid #22c55e;">
+                <div style="width: 200px; display: flex; align-items: center; justify-content: center; border-right: 2px solid #000;">
                     ${qrBase64 ? `<img src="data:${settings.qr_code_mimetype || 'image/png'};base64,${qrBase64}" style="width: 160px; height: 160px; object-fit: contain;" />` : ''}
                 </div>
                 <div style="flex: 1; padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 14px; font-weight: bold;">
@@ -254,20 +289,20 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
         <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; color: #000; font-size: 14px; background: #fff; margin: 0; padding: 20px; }
-            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #22c55e; margin-top: 16px; }
+            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; margin-top: 16px; }
             .excel-table td, .excel-table th { border: 1px solid #000; padding: 6px; }
             h2 { margin: 0 0 2px 0; font-size: 18px; font-weight: bold; }
             p { margin: 0 0 2px 0; }
         </style>
     </head>
     <body>
-        <div style="border: 2px solid #22c55e;">
-            <div style="border-bottom: 2px solid #22c55e; text-align: center; font-weight: bold; font-size: 16px; padding: 6px; background: #f0fdf4;">
+        <div style="border: 2px solid #000;">
+            <div style="border-bottom: 2px solid #000; text-align: center; font-weight: bold; font-size: 16px; padding: 6px; background: #f0fdf4;">
                 STATEMENT OF ACCOUNT
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 8px; border-right: 2px solid #22c55e;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 8px; border-right: 2px solid #000;">
                     <h2>Anand Enterprises</h2>
                     <p>Address : ${settings?.address || ''}</p>
                     <p>Mobile No. : ${settings?.mobile_number || ''} , State : ${settings?.state || ''}</p>
@@ -278,14 +313,14 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
                 </div>
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
                 <div style="flex: 1; padding: 8px;">
                     <p><strong>Distributor / Firm:</strong> ${distributorDetails.firm_name}</p>
                     ${distributorDetails.owner_name ? `<p>Owner Name: ${distributorDetails.owner_name}</p>` : ''}
                     <p>Address: ${distributorDetails.address || '-'}</p>
                     <p>Contact: ${distributorDetails.phone_number || '-'}</p>
                 </div>
-                <div style="flex: 1; padding: 8px; border-left: 2px solid #22c55e; background: #f8fafc;">
+                <div style="flex: 1; padding: 8px; border-left: 2px solid #000; background: #f8fafc;">
                     <p><strong>Account Summary</strong></p>
                     <table style="width: 100%; margin-top: 8px;">
                         <tr><td>Total Billed:</td><td style="text-align: right;">₹${(summary.total_billed || 0).toFixed(2)}</td></tr>
@@ -321,8 +356,8 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
                 </table>
             </div>
             
-            <div style="display: flex; min-height: 120px; border-top: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 8px; border-right: 2px solid #22c55e; font-size: 13px; font-weight: bold;">
+            <div style="display: flex; min-height: 120px; border-top: 2px solid #000;">
+                <div style="flex: 1; padding: 8px; border-right: 2px solid #000; font-size: 13px; font-weight: bold;">
                     <p>Note:</p>
                     <p>1. Statement generated on ${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}</p>
                     <p>2. Subject to jurisdiction : Palghar</p>
@@ -403,20 +438,22 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
         <meta charset="UTF-8">
         <style>
             body { font-family: Arial, sans-serif; color: #000; font-size: 14px; background: #fff; margin: 0; padding: 20px; }
-            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #22c55e; }
+            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; }
             .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px; }
+            .excel-table tr { page-break-inside: avoid; }
+            tfoot { display: table-row-group; }
             h2 { margin: 0 0 2px 0; font-size: 18px; font-weight: bold; }
             p { margin: 0 0 2px 0; }
         </style>
     </head>
     <body>
-        <div style="border: 2px solid #22c55e;">
-            <div style="border-bottom: 2px solid #22c55e; text-align: center; font-weight: bold; font-size: 14px; padding: 4px;">
+        <div style="border: 2px solid #000;">
+            <div style="border-bottom: 2px solid #000; text-align: center; font-weight: bold; font-size: 14px; padding: 4px;">
                 Credit Note
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000;">
                     <h2>Anand Enterprises</h2>
                     <p>Address : ${settings?.address || ''}</p>
                     <p>State : ${settings?.state || ''}</p>
@@ -427,8 +464,8 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                 </div>
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000;">
                     <p><strong>Bill To:</strong> ${distributorDetails.firm_name}</p>
                     ${distributorDetails.owner_name ? `<p>Owner Name: ${distributorDetails.owner_name}</p>` : ''}
                     <p>Address: ${distributorDetails.address || '-'}</p>
@@ -436,8 +473,8 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                 </div>
             </div>
             
-            <div style="display: flex; border-bottom: 2px solid #22c55e;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e; font-weight: bold;">
+            <div style="display: flex; border-bottom: 2px solid #000;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000; font-weight: bold;">
                     CREDIT NOTE NO. : ${credit_note.credit_note_number}
                 </div>
                 <div style="flex: 1; padding: 4px 8px; font-weight: bold;">
@@ -450,7 +487,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                     <tr>
                         <th style="text-align: center; width: 30px;">Sr. No</th>
                         <th style="text-align: center; width: 50px;">HSN</th>
-                        <th style="text-align: left;">Item Name</th>
+                        <th style="text-align: left; width: 30%;">Item Name</th>
                         <th style="text-align: center; width: 50px;">UOM</th>
                         <th style="text-align: center; width: 40px;">Qty</th>
                         <th style="text-align: right; width: 50px;">Rate</th>
@@ -509,8 +546,8 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                 </tfoot>
             </table>
             
-            <div style="display: flex; min-height: 150px;">
-                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #22c55e; font-size: 13px; font-weight: bold;">
+            <div style="display: flex; min-height: 150px; page-break-inside: avoid;">
+                <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000; font-size: 13px; font-weight: bold;">
                     <p>Note:</p>
                     <p>1. Order By: ${distributorDetails.owner_name || '-'}</p>
                     <p>2. Goods Check Before Received:</p>

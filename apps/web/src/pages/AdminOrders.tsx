@@ -85,6 +85,43 @@ const AdminOrders = () => {
     }
   };
 
+  const handleDownloadDraft = async (order: any, calculatedDiscount: number) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    
+    try {
+      const itemsPayload = order.items.map((item: any) => ({
+        order_item_id: item.order_item_id,
+        variant_id: item.variant_id,
+        executed_qty: executionQuantities[item.order_item_id] !== undefined 
+            ? executionQuantities[item.order_item_id] 
+            : item.requested_qty
+      }));
+
+      const response = await api.post(`/api/orders/${order.order_id}/draft-pdf`, {
+        items: itemsPayload,
+        extra_discount: calculatedDiscount,
+        credit_applied: creditApplied
+      }, {
+        responseType: 'blob' // Important for downloading files
+      });
+
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Draft_Bill_${order.order_id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError('Failed to download draft bill');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -428,6 +465,9 @@ const AdminOrders = () => {
                             setDiscountReason('');
                             setCreditApplied(0);
                           }} style={{ marginRight: '10px' }} disabled={isProcessing}>Cancel</button>
+                          <button className="secondary-btn" onClick={() => handleDownloadDraft(order, discountType === 'percent' ? totalAmount * (extraDiscount / 100) : extraDiscount)} style={{ marginRight: '10px' }} disabled={isProcessing}>
+                            Download Draft Bill (PDF)
+                          </button>
                           <button className="primary-btn" onClick={() => handleExecute(order, discountType === 'percent' ? totalAmount * (extraDiscount / 100) : extraDiscount)} disabled={isProcessing}>
                             {isProcessing ? 'Processing...' : 'Confirm & Generate Bill'}
                           </button>

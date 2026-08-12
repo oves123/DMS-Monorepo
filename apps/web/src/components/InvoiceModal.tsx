@@ -9,6 +9,39 @@ interface InvoiceModalProps {
   onClose: () => void;
 }
 
+
+const CATEGORY_ORDER: Record<string, number> = {
+  'chips': 1,
+  'popcorn': 2,
+  'fryums': 3,
+  'namkeen': 4,
+  'kurkure': 5,
+  'choco bites': 6
+};
+
+const sortItemsByCategory = (items: any[]) => {
+  if (!items || !Array.isArray(items)) return items;
+  return [...items].sort((a, b) => {
+    const catA = a.category_name ? String(a.category_name).toLowerCase().trim() : '';
+    const catB = b.category_name ? String(b.category_name).toLowerCase().trim() : '';
+    const rankA = CATEGORY_ORDER[catA] || 99;
+    const rankB = CATEGORY_ORDER[catB] || 99;
+    return rankA - rankB;
+  });
+};
+
+const formatPackSize = (packSize: string) => {
+  if (!packSize) return '';
+  const match = String(packSize).match(/^(\d+)Rs/i);
+  if (match) {
+    const retailPrice = parseInt(match[1]);
+    if (retailPrice <= 20) {
+      return String(packSize).replace(/\s*\d+\s*(?:g|gm|kg)\s*$/i, '');
+    }
+  }
+  return packSize;
+};
+
 const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
   const [data, setData] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
@@ -91,7 +124,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
       zIndex: 1000, padding: '20px'
     }}>
       <div style={{
-        background: '#fff', width: '100%', maxWidth: '800px',
+        background: '#fff', width: '100%', maxWidth: '1100px',
         maxHeight: '90vh', overflowY: 'auto', position: 'relative',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
       }} className="printable-invoice">
@@ -124,7 +157,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
             
             {/* EXCEL INVOICE WRAPPER */}
             <div style={{ 
-              border: '2px solid #22c55e', /* Green outer border */
+              border: '2px solid #000', /* Green outer border */
               fontFamily: 'Arial, sans-serif',
               color: '#000',
               fontSize: '14px',
@@ -133,7 +166,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               
               {/* Top Bar: TAX INVOICE */}
               <div style={{ 
-                borderBottom: '2px solid #22c55e', 
+                borderBottom: '2px solid #000', 
                 textAlign: 'center', 
                 fontWeight: 'bold', 
                 fontSize: '16px', 
@@ -143,8 +176,8 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               </div>
               
               {/* Company Details Row */}
-              <div style={{ display: 'flex', borderBottom: '2px solid #22c55e' }}>
-                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e' }}>
+              <div style={{ display: 'flex', borderBottom: '2px solid #000' }}>
+                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #000' }}>
                   <h2 style={{ margin: '0 0 2px 0', fontSize: '18px', fontWeight: 'bold' }}>Anand Enterprises</h2>
                   <p style={{ margin: '0 0 2px 0' }}>Address : {settings?.address || ''}</p>
                   <p style={{ margin: '0 0 2px 0' }}>Mobile No. : {settings?.mobile_number || ''} , State : {settings?.state || ''}</p>
@@ -156,8 +189,8 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               </div>
               
               {/* Bill To & Ship To Details Row */}
-              <div style={{ display: 'flex', borderBottom: '2px solid #22c55e' }}>
-                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e' }}>
+              <div style={{ display: 'flex', borderBottom: '2px solid #000' }}>
+                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #000' }}>
                   <p style={{ margin: '0 0 2px 0' }}><strong>Bill To:</strong> {data.invoice.firm_name}</p>
                   {data.invoice.owner_name && (
                     <p style={{ margin: '0 0 2px 0' }}>Owner Name: {data.invoice.owner_name}</p>
@@ -176,17 +209,17 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               </div>
               
               {/* Bill No & Date Row */}
-              <div style={{ display: 'flex', borderBottom: '2px solid #22c55e' }}>
-                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e', fontWeight: 'bold' }}>
+              <div style={{ display: 'flex', borderBottom: '2px solid #000' }}>
+                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #000', fontWeight: 'bold' }}>
                   BILL NO. : {data.invoice.invoice_number}
                 </div>
                 <div style={{ flex: 1, padding: '4px 8px', fontWeight: 'bold' }}>
-                  Date : {new Date(data.invoice.created_at).toLocaleDateString('en-GB').replace(/\//g, '-')}
+                  Date : {new Date(data.invoice.created_at).toLocaleDateString('en-GB').split('/').join('-')}
                 </div>
               </div>
               
               {/* Data Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #22c55e' }} className="excel-table">
+              <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #000' }} className="excel-table">
                 <thead>
                   <tr>
                     <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', width: '30px' }}>#</th>
@@ -204,7 +237,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((item: any, idx: number) => {
+                  {sortItemsByCategory(data.items).map((item: any, idx: number) => {
                     const taxableAmt = item.executed_qty * item.price_at_order;
                     const cgstRate = settings?.cgst_rate || 2.5;
                     const sgstRate = settings?.sgst_rate || 2.5;
@@ -217,7 +250,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>{idx + 1}</td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>{item.hsn_code || '-'}</td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold' }}>
-                          {item.product_name} - {item.pack_size}
+                          {item.product_name} - {formatPackSize(item.pack_size)}
                         </td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center' }}>{item.uom || 'Box'}</td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'center', fontWeight: 'bold' }}>
@@ -318,7 +351,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 });
 
                 return (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #22c55e' }} className="excel-table">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #000' }} className="excel-table">
                     <thead>
                       <tr>
                         <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc' }}>Filling Type</th>
@@ -343,13 +376,13 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               
               {/* Footer / Notes Row */}
               <div style={{ display: 'flex', minHeight: '150px' }}>
-                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #22c55e', fontSize: '13px', fontWeight: 'bold' }}>
+                <div style={{ flex: 1, padding: '4px 8px', borderRight: '2px solid #000', fontSize: '13px', fontWeight: 'bold' }}>
                   <p style={{ margin: '0 0 2px 0' }}>Note:</p>
                   <p style={{ margin: '0 0 2px 0' }}>1. Order By: {data.invoice.owner_name || '-'}</p>
                   <p style={{ margin: '0 0 2px 0' }}>2. Goods Check Before Received!</p>
                   <p style={{ margin: '0 0 2px 0' }}>3. Subject to jurisdiction : Palghar</p>
                 </div>
-                <div style={{ width: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '2px solid #22c55e' }}>
+                <div style={{ width: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '2px solid #000' }}>
                   <div style={{ 
                     width: '160px', 
                     height: '160px'

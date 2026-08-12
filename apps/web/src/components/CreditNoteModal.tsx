@@ -8,6 +8,39 @@ interface CreditNoteModalProps {
   onSuccess: () => void;
 }
 
+
+const CATEGORY_ORDER: Record<string, number> = {
+  'chips': 1,
+  'popcorn': 2,
+  'fryums': 3,
+  'namkeen': 4,
+  'kurkure': 5,
+  'choco bites': 6
+};
+
+const sortItemsByCategory = (items: any[]) => {
+  if (!items || !Array.isArray(items)) return items;
+  return [...items].sort((a, b) => {
+    const catA = a.category_name ? String(a.category_name).toLowerCase().trim() : '';
+    const catB = b.category_name ? String(b.category_name).toLowerCase().trim() : '';
+    const rankA = CATEGORY_ORDER[catA] || 99;
+    const rankB = CATEGORY_ORDER[catB] || 99;
+    return rankA - rankB;
+  });
+};
+
+const formatPackSize = (packSize: string) => {
+  if (!packSize) return '';
+  const match = String(packSize).match(/^(\d+)Rs/i);
+  if (match) {
+    const retailPrice = parseInt(match[1]);
+    if (retailPrice <= 20) {
+      return String(packSize).replace(/\s*\d+\s*(?:g|gm|kg)\s*$/i, '');
+    }
+  }
+  return packSize;
+};
+
 const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose, onSuccess }) => {
   const [mode, setMode] = useState<'defective' | 'direct'>('defective');
   
@@ -95,12 +128,12 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
     return totalQty * item.price_at_order;
   };
 
-  const totalCalculatedCredit = mode === 'defective' 
-    ? Object.values(selectedItems).reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0)
-    : parseFloat(directAmount) || 0;
+  const totalCalculatedCredit: number = mode === 'defective' 
+    ? Number(Object.values(selectedItems).reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0))
+    : (parseFloat(directAmount) || 0);
   
   const gstRate = 5; // 2.5 + 2.5
-  const totalWithGst = totalCalculatedCredit * (1 + (gstRate/100));
+  const totalWithGst: number = totalCalculatedCredit * (1 + (gstRate/100));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,7 +206,7 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
     }}>
-      <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '1100px', maxHeight: '90vh', overflowY: 'auto' }}>
         <h3 style={{ marginBottom: '8px', fontSize: '20px' }}>Issue Credit Note</h3>
         <p style={{ color: '#64748b', marginBottom: '24px' }}>
           Distributor/Client: <strong>{distributor.firm_name}</strong>
@@ -238,7 +271,7 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {invoiceItems.map(item => {
+                                    {sortItemsByCategory(invoiceItems).map(item => {
                                         const isSelected = !!selectedItems[item.order_item_id];
                                         return (
                                             <tr key={item.order_item_id} style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -251,7 +284,7 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
                                                         />
                                                         <div>
                                                             <div style={{ fontWeight: 600 }}>{item.product_name}</div>
-                                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{item.pack_size}</div>
+                                                            <div style={{ color: '#64748b', fontSize: '11px' }}>{formatPackSize(item.pack_size)}</div>
                                                         </div>
                                                     </label>
                                                 </td>
