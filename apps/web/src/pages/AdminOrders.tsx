@@ -131,7 +131,7 @@ const AdminOrders = () => {
         String(order.order_id).includes(searchQuery);
       const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
       const matchesDate = !dateFilter || 
-        new Date(order.order_date).toLocaleDateString('en-CA') === dateFilter;
+        (order.order_date && order.order_date.split('T')[0] === dateFilter);
       return matchesSearch && matchesStatus && matchesDate;
     });
   }, [orders, searchQuery, statusFilter, dateFilter]);
@@ -326,6 +326,7 @@ const AdminOrders = () => {
                                 onChange={(e) => {
                                   let val = parseInt(e.target.value);
                                   if (isNaN(val)) val = 0;
+                                  if (val < 0) val = 0;
                                   if (val > maxQty) {
                                     alert(`Cannot execute more than available stock (${maxQty})`);
                                     val = maxQty;

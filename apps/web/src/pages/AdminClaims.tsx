@@ -26,11 +26,18 @@ const AdminClaims = () => {
   const [expandedRowItems, setExpandedRowItems] = useState<Record<number, any[]>>({});
   const [loadingItems, setLoadingItems] = useState(false);
 
+  const [topReason, setTopReason] = useState('N/A');
+
   const fetchCreditNotes = async () => {
     try {
       setLoading(true);
       const response = await api.get('/api/ledger/credit-note');
       setCreditNotes(response.data);
+      
+      const statsResponse = await api.get('/api/ledger/credit-note-stats');
+      if (statsResponse.data.topReason) {
+        setTopReason(statsResponse.data.topReason);
+      }
     } catch (err) {
       console.error('Failed to fetch credit notes:', err);
       setError('Failed to load credit notes');
@@ -98,16 +105,25 @@ const AdminClaims = () => {
 
       // date range
       let matchesDate = true;
-      if (dateRange !== 'all') {
-        const date = new Date(cn.created_at);
+      if (dateRange !== 'all' && cn.created_at) {
+        const dateStr = cn.created_at.split('T')[0];
+        const [year, month] = dateStr.split('-').map(Number);
         const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+
         if (dateRange === 'thisMonth') {
-          matchesDate = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+          matchesDate = year === currentYear && month === currentMonth;
         } else if (dateRange === 'lastMonth') {
-          const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          matchesDate = date.getMonth() === lastMonth.getMonth() && date.getFullYear() === lastMonth.getFullYear();
+          let lastMonth = currentMonth - 1;
+          let lastMonthYear = currentYear;
+          if (lastMonth === 0) {
+            lastMonth = 12;
+            lastMonthYear -= 1;
+          }
+          matchesDate = year === lastMonthYear && month === lastMonth;
         } else if (dateRange === 'thisYear') {
-          matchesDate = date.getFullYear() === now.getFullYear();
+          matchesDate = year === currentYear;
         }
       }
 
@@ -138,31 +154,24 @@ const AdminClaims = () => {
     let totalCredit = 0;
     let totalRefunded = 0;
     let totalWallet = 0;
-    
-    let reasons: Record<string, number> = {};
-    Object.values(expandedRowItems).flat().forEach(item => {
-      if (item.reason) {
-        reasons[item.reason] = (reasons[item.reason] || 0) + 1;
-      }
-    });
-    
-    let commonReason = 'N/A';
-    let max = 0;
-    for (const [r, count] of Object.entries(reasons)) {
-      if (count > max) { max = count; commonReason = r; }
-    }
 
     const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
     creditNotes.forEach(cn => {
-      const d = new Date(cn.created_at);
-      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+      if (!cn.created_at) return;
+      const dateStr = cn.created_at.split('T')[0];
+      const [year, month] = dateStr.split('-').map(Number);
+      
+      if (year === currentYear && month === currentMonth) {
         totalCredit += cn.amount;
         if (cn.is_paid_out) totalRefunded += cn.amount;
         else totalWallet += cn.amount;
       }
     });
-    return { totalCredit, totalRefunded, totalWallet, commonReason };
-  }, [creditNotes, expandedRowItems]);
+    return { totalCredit, totalRefunded, totalWallet, commonReason: topReason };
+  }, [creditNotes, topReason]);
 
   const handleExportCSV = () => {
     const headers = ['Credit Note #', 'Distributor', 'Against Invoice', 'Date Issued', 'Amount', 'Status'];

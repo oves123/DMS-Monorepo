@@ -105,7 +105,7 @@ const AdminLedger = () => {
 
     // Date filter
     const matchesDate = !dateFilter || dist.invoices.some((inv: any) => 
-      new Date(inv.created_at).toLocaleDateString('en-CA') === dateFilter
+      inv.created_at && inv.created_at.split('T')[0] === dateFilter
     );
 
     return matchesSearch && matchesStatus && matchesDate;

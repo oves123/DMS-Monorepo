@@ -135,8 +135,8 @@ const AdminProducts = () => {
       setEditingVariant(null);
       fetchProducts();
       showToast('Variant updated successfully!', 'success');
-    } catch (err) {
-      showToast('Failed to update variant', 'error');
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Failed to update variant', 'error');
     } finally {
       setIsUpdating(false);
     }
@@ -146,13 +146,6 @@ const AdminProducts = () => {
     e.preventDefault();
     setIsAddingVariant(true);
     try {
-        // We'll reuse the bulk upload or direct variant insert if possible, 
-        // but for now we can just send it to a theoretical endpoint or update the addProduct logic.
-        // Actually, let's just make a quick POST to /api/products using the same payload format, but wait...
-        // If we add a variant, the API doesn't have a direct endpoint for adding a variant to an existing product in productRoutes.js.
-        // Let's implement it quickly in the frontend: 
-        // We could just add a new route, but for now we'll do it safely.
-        // I will add a new endpoint in the backend for POST /api/products/:id/variants
         await api.post(`/api/products/${addingVariantTo.product_id}/variants`, {
             pack_size: newVariantForm.pack_size,
             pieces_per_box: newVariantForm.pieces_per_box ? parseInt(newVariantForm.pieces_per_box) : null,
@@ -165,8 +158,8 @@ const AdminProducts = () => {
         setNewVariantForm({ pack_size: '', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' });
         fetchProducts();
         setExpandedProducts(prev => ({ ...prev, [addingVariantTo.product_id]: true }));
-    } catch (err) {
-        showToast('Failed to add variant. Ensure backend supports this route.', 'error');
+    } catch (err: any) {
+        showToast(err.response?.data?.message || 'Failed to add variant.', 'error');
     } finally {
         setIsAddingVariant(false);
     }
@@ -186,20 +179,29 @@ const AdminProducts = () => {
   }, [catalog]);
 
   // Filter and Pagination Logic
-  const filteredCatalog = useMemo(() => catalog.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (p.category_name && p.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'All' || p.category_name === selectedCategory;
-    const matchesHsn = selectedHsn === 'All' || p.hsn_code === selectedHsn;
-    
-    const hasMatchingVariant = p.variants.some((v: any) => {
-        const matchesMin = minRate === '' || parseFloat(v.distributor_rate) >= parseFloat(minRate);
-        const matchesMax = maxRate === '' || parseFloat(v.distributor_rate) <= parseFloat(maxRate);
-        return matchesMin && matchesMax;
-    });
+  const filteredCatalog = useMemo(() => {
+    const results = [];
+    for (const p of catalog) {
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (p.category_name && p.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = selectedCategory === 'All' || p.category_name === selectedCategory;
+      const matchesHsn = selectedHsn === 'All' || p.hsn_code === selectedHsn;
 
-    return matchesSearch && matchesCategory && matchesHsn && hasMatchingVariant;
-  }), [catalog, searchQuery, selectedCategory, selectedHsn, minRate, maxRate]);
+      if (!matchesSearch || !matchesCategory || !matchesHsn) continue;
+
+      const matchingVariants = p.variants.filter((v: any) => {
+          const matchesMin = minRate === '' || parseFloat(v.distributor_rate) >= parseFloat(minRate);
+          const matchesMax = maxRate === '' || parseFloat(v.distributor_rate) <= parseFloat(maxRate);
+          return matchesMin && matchesMax;
+      });
+
+      if (matchingVariants.length > 0) {
+        // Clone the product and replace variants with only the matching ones
+        results.push({ ...p, variants: matchingVariants });
+      }
+    }
+    return results;
+  }, [catalog, searchQuery, selectedCategory, selectedHsn, minRate, maxRate]);
 
   const totalPages = Math.ceil(filteredCatalog.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;

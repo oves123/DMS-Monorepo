@@ -275,6 +275,17 @@ exports.recordBulkPayment = async (req, res) => {
             `);
         }
 
+        if (remainingAmount > 0) {
+            const wallReq = new sql.Request(transaction);
+            wallReq.input('add_amt', sql.Decimal(18,2), remainingAmount);
+            wallReq.input('dist_id', sql.Int, distributor_id);
+            await wallReq.query(`
+                UPDATE Users 
+                SET wallet_balance = COALESCE(wallet_balance, 0) + @add_amt 
+                WHERE user_id = @dist_id
+            `);
+        }
+
         await transaction.commit();
         res.json({ message: 'Bulk payment processed successfully', remaining_unapplied: remainingAmount });
 
@@ -779,5 +790,25 @@ exports.getCreditNoteItems = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error fetching credit note items' });
+    }
+};
+
+// GET /api/ledger/credit-note-stats
+exports.getCreditNoteStats = async (req, res) => {
+    try {
+        const request = new sql.Request();
+        const result = await request.query(`
+            SELECT TOP 1 reason, COUNT(*) as count
+            FROM CreditNoteItems
+            WHERE reason IS NOT NULL AND reason != ''
+            GROUP BY reason
+            ORDER BY count DESC
+        `);
+        let topReason = 'N/A';
+        if (result.recordset.length > 0) topReason = result.recordset[0].reason;
+        res.json({ topReason });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error fetching credit note stats' });
     }
 };

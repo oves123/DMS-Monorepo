@@ -17,10 +17,11 @@ exports.getAdminSales = async (req, res) => {
             SELECT 
                 CONVERT(VARCHAR(10), order_date, 120) as date, 
                 COUNT(DISTINCT o.order_id) as total_orders, 
-                ISNULL(SUM(oi.price_at_order * oi.requested_qty), 0) as total_revenue
+                ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as total_revenue
             FROM Orders o
             JOIN OrderItems oi ON o.order_id = oi.order_id
-            ${dateFilter}
+            WHERE o.status = 'EXECUTED' 
+            ${dateFilter.replace('WHERE', 'AND')}
             GROUP BY CONVERT(VARCHAR(10), order_date, 120)
             ORDER BY date ASC
         `);
@@ -47,12 +48,13 @@ exports.getAdminTopProducts = async (req, res) => {
         const result = await request.query(`
             SELECT TOP 5 
                 p.name as product_name, 
-                ISNULL(SUM(oi.requested_qty), 0) as total_sold
+                ISNULL(SUM(oi.executed_qty), 0) as total_sold
             FROM OrderItems oi
             JOIN Orders o ON oi.order_id = o.order_id
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
-            ${dateFilter}
+            WHERE o.status = 'EXECUTED'
+            ${dateFilter.replace('WHERE', 'AND')}
             GROUP BY p.name
             ORDER BY total_sold DESC
         `);
@@ -80,11 +82,12 @@ exports.getAdminTopDistributors = async (req, res) => {
             SELECT TOP 5 
                 u.firm_name as distributor_name, 
                 COUNT(DISTINCT o.order_id) as total_orders, 
-                ISNULL(SUM(oi.price_at_order * oi.requested_qty), 0) as total_spent
+                ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as total_spent
             FROM Orders o
             JOIN Users u ON o.distributor_id = u.user_id
             JOIN OrderItems oi ON o.order_id = oi.order_id
-            ${dateFilter}
+            WHERE o.status = 'EXECUTED'
+            ${dateFilter.replace('WHERE', 'AND')}
             GROUP BY u.firm_name
             ORDER BY total_spent DESC
         `);
@@ -103,7 +106,7 @@ exports.getAdminInventoryAlerts = async (req, res) => {
             FROM Inventory i
             JOIN ProductVariants v ON i.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
-            WHERE i.current_stock_qty < 5
+            WHERE i.current_stock_qty <= ISNULL(i.low_stock_threshold, 5)
             ORDER BY i.current_stock_qty ASC
         `);
         res.json(result.recordset);
@@ -132,10 +135,10 @@ exports.getDistributorPurchases = async (req, res) => {
                 SELECT 
                     CONVERT(VARCHAR(10), order_date, 120) as date, 
                     COUNT(DISTINCT o.order_id) as total_orders, 
-                    ISNULL(SUM(oi.price_at_order * oi.requested_qty), 0) as amount_spent
+                    ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as amount_spent
                 FROM Orders o
                 JOIN OrderItems oi ON o.order_id = oi.order_id
-                WHERE o.distributor_id = @user_id ${dateFilter}
+                WHERE o.distributor_id = @user_id AND o.status = 'EXECUTED' ${dateFilter}
                 GROUP BY CONVERT(VARCHAR(10), order_date, 120)
                 ORDER BY date ASC
             `);
@@ -164,12 +167,12 @@ exports.getDistributorTopProducts = async (req, res) => {
         const result = await request.query(`
                 SELECT TOP 5 
                     p.name as product_name, 
-                    ISNULL(SUM(oi.requested_qty), 0) as total_bought
+                    ISNULL(SUM(oi.executed_qty), 0) as total_bought
                 FROM OrderItems oi
                 JOIN Orders o ON oi.order_id = o.order_id
                 JOIN ProductVariants v ON oi.variant_id = v.variant_id
                 JOIN Products p ON v.product_id = p.product_id
-                WHERE o.distributor_id = @user_id ${dateFilter}
+                WHERE o.distributor_id = @user_id AND o.status = 'EXECUTED' ${dateFilter}
                 GROUP BY p.name
                 ORDER BY total_bought DESC
             `);

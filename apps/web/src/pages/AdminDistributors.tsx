@@ -42,6 +42,7 @@ const AdminDistributors = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showAddPassword, setShowAddPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
+  const [filesToDelete, setFilesToDelete] = useState<string[]>([]);
   
   // Ledger Modal State
   const [ledgerDistributor, setLedgerDistributor] = useState<{id: number, name: string} | null>(null);
@@ -58,6 +59,19 @@ const AdminDistributors = () => {
       setError('Failed to fetch distributors');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleViewFile = async (userId: number, fileType: string) => {
+    try {
+      const response = await api.get(`/api/distributors/${userId}/file/${fileType}`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: response.headers['content-type'] as string }));
+      window.open(url, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      showToast('Failed to load file.', 'error');
     }
   };
 
@@ -117,6 +131,7 @@ const AdminDistributors = () => {
   const openEditModal = (dist: any) => {
     setEditingDist(dist);
     setEditForm({ ...dist });
+    setFilesToDelete([]);
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -139,6 +154,10 @@ const AdminDistributors = () => {
       if (editForm.panFile) formData.append('panFile', editForm.panFile);
       if (editForm.aadharFile) formData.append('aadharFile', editForm.aadharFile);
       if (editForm.photoFile) formData.append('photoFile', editForm.photoFile);
+
+      if (filesToDelete.includes('pan')) formData.append('deletePan', 'true');
+      if (filesToDelete.includes('aadhar')) formData.append('deleteAadhar', 'true');
+      if (filesToDelete.includes('photo')) formData.append('deletePhoto', 'true');
 
       await api.put(`/api/distributors/${editingDist.user_id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -435,19 +454,19 @@ const AdminDistributors = () => {
                         <td>{d.address || '-'}</td>
                         <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {d.has_pan === 1 && (
-                            <a href={`/api/distributors/${d.user_id}/file/pan`} target="_blank" rel="noopener noreferrer" title="View PAN">
+                            <button onClick={() => handleViewFile(d.user_id, 'pan')} title="View PAN" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                               <FileText size={16} color="#3b82f6" />
-                            </a>
+                            </button>
                           )}
                           {d.has_aadhar === 1 && (
-                            <a href={`/api/distributors/${d.user_id}/file/aadhar`} target="_blank" rel="noopener noreferrer" title="View Aadhar">
+                            <button onClick={() => handleViewFile(d.user_id, 'aadhar')} title="View Aadhar" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                               <FileBadge size={16} color="#10b981" />
-                            </a>
+                            </button>
                           )}
                           {d.has_photo === 1 && (
-                            <a href={`/api/distributors/${d.user_id}/file/photo`} target="_blank" rel="noopener noreferrer" title="View Photo">
+                            <button onClick={() => handleViewFile(d.user_id, 'photo')} title="View Photo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                               <Image size={16} color="#8b5cf6" />
-                            </a>
+                            </button>
                           )}
                           {d.has_pan !== 1 && d.has_aadhar !== 1 && d.has_photo !== 1 && (
                             <span style={{ color: '#9ca3af', fontSize: '12px' }}>None</span>
@@ -608,15 +627,33 @@ const AdminDistributors = () => {
                     <input type="text" value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} />
                   </div>
                   <div className="input-group">
-                    <label>Update PAN Card</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Update PAN Card</label>
+                      {editingDist?.has_pan === 1 && !filesToDelete.includes('pan') && (
+                        <button type="button" onClick={() => setFilesToDelete([...filesToDelete, 'pan'])} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}>Remove Current</button>
+                      )}
+                      {filesToDelete.includes('pan') && <span style={{ color: '#ef4444', fontSize: '12px' }}>(Will be deleted)</span>}
+                    </div>
                     <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, panFile: e.target.files ? e.target.files[0] : null})} />
                   </div>
                   <div className="input-group">
-                    <label>Update Aadhar</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Update Aadhar</label>
+                      {editingDist?.has_aadhar === 1 && !filesToDelete.includes('aadhar') && (
+                        <button type="button" onClick={() => setFilesToDelete([...filesToDelete, 'aadhar'])} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}>Remove Current</button>
+                      )}
+                      {filesToDelete.includes('aadhar') && <span style={{ color: '#ef4444', fontSize: '12px' }}>(Will be deleted)</span>}
+                    </div>
                     <input type="file" accept="image/*,.pdf" onChange={e => setEditForm({...editForm, aadharFile: e.target.files ? e.target.files[0] : null})} />
                   </div>
                   <div className="input-group">
-                    <label>Update Photo</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Update Photo</label>
+                      {editingDist?.has_photo === 1 && !filesToDelete.includes('photo') && (
+                        <button type="button" onClick={() => setFilesToDelete([...filesToDelete, 'photo'])} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', cursor: 'pointer' }}>Remove Current</button>
+                      )}
+                      {filesToDelete.includes('photo') && <span style={{ color: '#ef4444', fontSize: '12px' }}>(Will be deleted)</span>}
+                    </div>
                     <input type="file" accept="image/*" onChange={e => setEditForm({...editForm, photoFile: e.target.files ? e.target.files[0] : null})} />
                   </div>
                 </div>

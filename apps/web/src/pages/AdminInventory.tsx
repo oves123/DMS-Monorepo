@@ -92,26 +92,32 @@ const AdminInventory = () => {
 
   // Filter and Pagination Logic
   const filteredInventory = useMemo(() => {
-    let result = inventory.filter((product: any) => {
+    let result = [];
+    
+    for (const product of inventory) {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (product.category_name && product.category_name.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesCategory = selectedCategory === 'All' || product.category_name === selectedCategory;
       
-      // For stock filters, check if ANY variant matches
-      const hasMatchingStock = product.variants.some((item: any) => {
+      if (!matchesSearch || !matchesCategory) continue;
+
+      // Filter child variants
+      const matchingVariants = product.variants.filter((item: any) => {
         if (stockFilter === 'All') return true;
-        if (stockFilter === 'Low Stock') return item.current_stock <= item.low_stock_threshold;
-        if (stockFilter === 'Out of Stock') return item.current_stock === 0;
+        if (stockFilter === 'Low Stock') return (item.current_stock || 0) <= (item.low_stock_threshold || 5);
+        if (stockFilter === 'Out of Stock') return (item.current_stock || 0) === 0;
         return true;
       });
 
-      return matchesSearch && matchesCategory && hasMatchingStock;
-    });
+      if (matchingVariants.length > 0) {
+        result.push({ ...product, variants: matchingVariants });
+      }
+    }
 
     if (showCritical) {
       result.sort((a, b) => {
-        const aCritical = a.variants.some((v: any) => v.current_stock <= v.low_stock_threshold);
-        const bCritical = b.variants.some((v: any) => v.current_stock <= v.low_stock_threshold);
+        const aCritical = a.variants.some((v: any) => (v.current_stock || 0) <= (v.low_stock_threshold || 5));
+        const bCritical = b.variants.some((v: any) => (v.current_stock || 0) <= (v.low_stock_threshold || 5));
         if (aCritical && !bCritical) return -1;
         if (!aCritical && bCritical) return 1;
         return 0; // fallback to default order
@@ -332,7 +338,7 @@ const AdminInventory = () => {
 
                           {/* Nested Variant Rows */}
                           {isExpanded && product.variants.map((item: any) => {
-                            const isLowStock = item.current_stock <= item.low_stock_threshold;
+                            const isLowStock = (item.current_stock || 0) <= (item.low_stock_threshold || 5);
                             const amount = item.current_stock * item.distributor_rate;
                             
                             return (

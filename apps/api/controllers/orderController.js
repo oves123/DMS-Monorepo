@@ -90,6 +90,10 @@ exports.executeOrder = async (req, res) => {
         let sgst = 0;
 
         for (let item of items) {
+            if (item.executed_qty < 0) {
+                throw new Error('Executed quantity cannot be negative');
+            }
+
             const reqQty = new sql.Request(transaction);
             reqQty.input('item_id', sql.Int, item.order_item_id);
             reqQty.input('exec_qty', sql.Int, item.executed_qty);

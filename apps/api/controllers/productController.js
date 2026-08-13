@@ -215,6 +215,14 @@ exports.updateProductVariant = async (req, res) => {
         // 4. Update Variant details
         request.input('uom', sql.VarChar, uom || 'Box');
         request.input('p_size', sql.VarChar, pack_size);
+        
+        // CHECK FOR DUPLICATE PACK SIZE
+        const checkPackRes = await request.query(`SELECT variant_id FROM ProductVariants WHERE product_id = @prod_id AND pack_size = @p_size AND variant_id != @var_id`);
+        if (checkPackRes.recordset.length > 0) {
+            await transaction.rollback();
+            return res.status(400).json({ message: 'Another variant with this pack size already exists for this product.' });
+        }
+
         request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_r', sql.Decimal(10,2), distributor_rate);
         request.input('ret_r', sql.Decimal(10,2), retailer_rate);
@@ -380,6 +388,16 @@ exports.addProductVariant = async (req, res) => {
         const request = new sql.Request();
         request.input('product_id', sql.Int, product_id);
         request.input('pack_size', sql.VarChar, pack_size);
+        
+        // CHECK FOR DUPLICATE PACK SIZE
+        const checkReq = new sql.Request();
+        checkReq.input('prod_id', sql.Int, product_id);
+        checkReq.input('check_pack', sql.VarChar, pack_size);
+        const checkRes = await checkReq.query(`SELECT variant_id FROM ProductVariants WHERE product_id = @prod_id AND pack_size = @check_pack`);
+        if (checkRes.recordset.length > 0) {
+            return res.status(400).json({ message: 'This pack size already exists for this product.' });
+        }
+
         request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_rate', sql.Decimal(10,2), distributor_rate || 0);
         request.input('retailer_rate', sql.Decimal(10,2), retailer_rate || 0);

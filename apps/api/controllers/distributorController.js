@@ -214,7 +214,7 @@ exports.bulkUploadDistributors = async (req, res) => {
 exports.updateDistributor = async (req, res) => {
     try {
         const user_id = req.params.id;
-        const { firm_name, gst_number, address, phone_number, owner_name, fssai_number, password, rate_type } = req.body;
+        const { firm_name, gst_number, address, phone_number, owner_name, fssai_number, password, rate_type, deletePan, deleteAadhar, deletePhoto } = req.body;
 
         const request = new sql.Request();
         request.input('user_id', sql.Int, user_id);
@@ -238,14 +238,22 @@ exports.updateDistributor = async (req, res) => {
         if (req.files && req.files.panFile) {
             request.input('pan_card', sql.VarBinary, req.files.panFile[0].buffer);
             updateFields += `, pan_card = @pan_card`;
+        } else if (deletePan === 'true') {
+            updateFields += `, pan_card = NULL`;
         }
+
         if (req.files && req.files.aadharFile) {
             request.input('aadhar_card', sql.VarBinary, req.files.aadharFile[0].buffer);
             updateFields += `, aadhar_card = @aadhar_card`;
+        } else if (deleteAadhar === 'true') {
+            updateFields += `, aadhar_card = NULL`;
         }
+
         if (req.files && req.files.photoFile) {
             request.input('photo', sql.VarBinary, req.files.photoFile[0].buffer);
             updateFields += `, photo = @photo`;
+        } else if (deletePhoto === 'true') {
+            updateFields += `, photo = NULL`;
         }
 
         await request.query(`
