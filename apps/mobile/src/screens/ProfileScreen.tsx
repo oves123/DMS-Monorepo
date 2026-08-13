@@ -1,334 +1,378 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TextInput,
+  TouchableOpacity, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform, RefreshControl
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as SecureStore from '../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import api from '../lib/api';
+import { SkeletonBox } from '../components/SkeletonLoader';
+import { colors, spacing, radii, typography, shadows } from '../theme/theme';
+import { DistributorProfile } from '../types';
+
+async function fetchProfile(): Promise<DistributorProfile> {
+  const userStr = await SecureStore.getItemAsync('dms_user');
+  if (!userStr) throw new Error('Not authenticated');
+  const user = JSON.parse(userStr);
+  const response = await api.get(`/api/distributors/${user.user_id}`);
+  return response.data;
+}
+
+interface InfoRowProps {
+  label: string;
+  value: string;
+  icon: any;
+}
+
+const InfoRow = ({ label, value, icon }: InfoRowProps) => (
+  <View style={styles.detailRow}>
+    <Ionicons name={icon} size={16} color={colors.textMuted} style={styles.detailIcon} />
+    <View style={{ flex: 1 }}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.value}>{value || '-'}</Text>
+    </View>
+  </View>
+);
+
+interface DocRowProps {
+  label: string;
+  uploaded: boolean;
+}
+
+const DocRow = ({ label, uploaded }: DocRowProps) => (
+  <View style={styles.docRow}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Ionicons
+        name={uploaded ? 'checkmark-circle' : 'ellipse-outline'}
+        size={18}
+        color={uploaded ? colors.success : colors.textLight}
+      />
+      <Text style={styles.docLabel}>{label}</Text>
+    </View>
+    <Text style={[styles.docStatus, { color: uploaded ? colors.success : colors.textLight }]}>
+      {uploaded ? 'Uploaded' : 'Pending'}
+    </Text>
+  </View>
+);
 
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const queryClient = useQueryClient();
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isResetting, setIsResetting] = useState(false);
-  
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: fetchProfile,
+  });
 
-  const fetchProfile = async () => {
-    setIsLoading(true);
-    try {
-      const userStr = await AsyncStorage.getItem('dms_user');
-      const token = await AsyncStorage.getItem('dms_token');
-      
-      if (!userStr || !token) return;
-      const user = JSON.parse(userStr);
-
-      const response = await fetch(`http://localhost:5001/api/distributors/${user.user_id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch profile:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['profile'] });
+    setIsRefreshing(false);
+  }, [queryClient]);
 
   const handleResetPassword = async () => {
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert('Mismatch', 'Passwords do not match.');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert('Too Short', 'Password must be at least 6 characters.');
       return;
     }
-
     setIsResetting(true);
     try {
-      const userStr = await AsyncStorage.getItem('dms_user');
+      const userStr = await SecureStore.getItemAsync('dms_user');
       const user = JSON.parse(userStr!);
-      
-      const response = await fetch('http://localhost:5001/api/auth/reset-password', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.user_id, new_password: newPassword })
+      await api.put('/api/auth/reset-password', {
+        user_id: user.user_id,
+        new_password: newPassword,
       });
-
-      if (response.ok) {
-        Alert.alert('Success', 'Password updated successfully');
-        setNewPassword('');
-        setConfirmPassword('');
-      } else {
-        Alert.alert('Error', 'Failed to update password');
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Network error');
+      Alert.alert('Success ✓', 'Password updated successfully.');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to update password.');
     } finally {
       setIsResetting(false);
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Logout", 
-          style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.removeItem('dms_token');
-            await AsyncStorage.removeItem('dms_user');
-            // Navigate back to Login Stack
-            navigation.replace('Login');
-          }
-        }
-      ]
-    );
+  const handleLogout = () => {
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          await SecureStore.deleteItemAsync('dms_token');
+          await SecureStore.deleteItemAsync('dms_user');
+          queryClient.clear();
+          navigation.replace('Login');
+        },
+      },
+    ]);
   };
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <SkeletonBox height={100} borderRadius={radii.lg} style={{ marginBottom: spacing.lg }} />
+          <SkeletonBox height={200} borderRadius={radii.lg} style={{ marginBottom: spacing.lg }} />
+          <SkeletonBox height={120} borderRadius={radii.lg} />
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* Profile Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="person" size={20} color="#2563eb" />
-            <Text style={styles.cardTitle}>Personal Details</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Firm Name</Text>
-            <Text style={styles.value}>{profile?.firm_name}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Owner Name</Text>
-            <Text style={styles.value}>{profile?.owner_name}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Phone Number</Text>
-            <Text style={styles.value}>{profile?.phone_number}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Address</Text>
-            <Text style={styles.value}>{profile?.address}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>GST Number</Text>
-            <Text style={styles.value}>{profile?.gst_number || '-'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>FSSAI Number</Text>
-            <Text style={styles.value}>{profile?.fssai_number || '-'}</Text>
-          </View>
-        </View>
-
-        {/* Documents Summary */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="document-text" size={20} color="#10b981" />
-            <Text style={styles.cardTitle}>Documents</Text>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          {/* Avatar / Firm Header */}
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>
+                {profile?.firm_name?.charAt(0)?.toUpperCase() || '?'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.firmName}>{profile?.firm_name}</Text>
+              <Text style={styles.ownerName}>{profile?.owner_name}</Text>
+            </View>
           </View>
 
-          <View style={styles.docRow}>
-            <Text style={styles.docLabel}>PAN Card</Text>
-            <Text style={[styles.docStatus, { color: profile?.has_pan ? '#10b981' : '#94a3b8' }]}>
-              {profile?.has_pan ? 'Uploaded' : 'Pending'}
-            </Text>
-          </View>
-          <View style={styles.docRow}>
-            <Text style={styles.docLabel}>Aadhar Card</Text>
-            <Text style={[styles.docStatus, { color: profile?.has_aadhar ? '#10b981' : '#94a3b8' }]}>
-              {profile?.has_aadhar ? 'Uploaded' : 'Pending'}
-            </Text>
-          </View>
-          <View style={styles.docRow}>
-            <Text style={styles.docLabel}>Photo</Text>
-            <Text style={[styles.docStatus, { color: profile?.has_photo ? '#10b981' : '#94a3b8' }]}>
-              {profile?.has_photo ? 'Uploaded' : 'Pending'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Security / Password */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="lock-closed" size={20} color="#ef4444" />
-            <Text style={styles.cardTitle}>Security</Text>
+          {/* Personal Details */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="person" size={20} color={colors.primary} />
+              <Text style={styles.cardTitle}>Personal Details</Text>
+            </View>
+            <InfoRow label="Firm Name" value={profile?.firm_name || ''} icon="business-outline" />
+            <InfoRow label="Owner Name" value={profile?.owner_name || ''} icon="person-outline" />
+            <InfoRow label="Phone Number" value={profile?.phone_number || ''} icon="call-outline" />
+            <InfoRow label="Address" value={profile?.address || ''} icon="location-outline" />
+            <InfoRow label="GST Number" value={profile?.gst_number || '-'} icon="document-text-outline" />
+            <InfoRow label="FSSAI Number" value={profile?.fssai_number || '-'} icon="shield-checkmark-outline" />
           </View>
 
-          <Text style={styles.inputLabel}>New Password</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            placeholder="Enter new password"
-            value={newPassword}
-            onChangeText={setNewPassword}
-          />
+          {/* Documents */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="folder-open" size={20} color={colors.success} />
+              <Text style={styles.cardTitle}>Documents</Text>
+            </View>
+            <DocRow label="PAN Card" uploaded={!!profile?.has_pan} />
+            <DocRow label="Aadhar Card" uploaded={!!profile?.has_aadhar} />
+            <DocRow label="Photo" uploaded={!!profile?.has_photo} />
+          </View>
 
-          <Text style={styles.inputLabel}>Confirm New Password</Text>
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            placeholder="Confirm new password"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
+          {/* Quick Links */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="apps" size={20} color={colors.info} />
+              <Text style={styles.cardTitle}>Tools & Options</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.linkRow}
+              onPress={() => navigation.navigate('Reports')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="bar-chart" size={18} color={colors.textSecondary} />
+              <Text style={styles.linkText}>Reports & Analytics</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textLight} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.linkRow}
+              onPress={() => navigation.navigate('Claims')}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text" size={18} color={colors.textSecondary} />
+              <Text style={styles.linkText}>Claims & Credits</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textLight} style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity 
-            style={styles.btnPrimary} 
-            onPress={handleResetPassword}
-            disabled={isResetting}
-          >
-            {isResetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Update Password</Text>}
+          {/* Security */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="lock-closed" size={20} color={colors.danger} />
+              <Text style={styles.cardTitle}>Security</Text>
+            </View>
+            <Text style={styles.inputLabel}>New Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              placeholder="Enter new password"
+              placeholderTextColor={colors.textLight}
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <Text style={styles.inputLabel}>Confirm New Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              placeholder="Confirm new password"
+              placeholderTextColor={colors.textLight}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <TouchableOpacity
+              style={[styles.btnPrimary, isResetting && { opacity: 0.7 }]}
+              onPress={handleResetPassword}
+              disabled={isResetting}
+              activeOpacity={0.85}
+            >
+              {isResetting
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.btnPrimaryText}>Update Password</Text>}
+            </TouchableOpacity>
+          </View>
+
+          {/* Logout */}
+          <TouchableOpacity style={styles.btnLogout} onPress={handleLogout} activeOpacity={0.8}>
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={styles.btnLogoutText}>Log Out</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Logout */}
-        <TouchableOpacity style={styles.btnLogout} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-          <Text style={styles.btnLogoutText}>Log Out</Text>
-        </TouchableOpacity>
-
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: spacing.lg, paddingBottom: 40 },
+
+  profileHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    gap: spacing.lg,
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: colors.border,
+    ...shadows.card,
+  },
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: colors.white, fontSize: 22, fontWeight: 'bold' },
+  firmName: { fontSize: typography.lg, fontWeight: 'bold', color: colors.textPrimary },
+  ownerName: { fontSize: typography.sm, color: colors.textMuted, marginTop: 2 },
+
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 12,
+    borderBottomColor: colors.borderLight,
+    paddingBottom: spacing.md,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
+  cardTitle: { fontSize: typography.lg, fontWeight: 'bold', color: colors.textPrimary },
+
   detailRow: {
-    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  label: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 4,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#0f172a',
-  },
+  detailIcon: { marginTop: 3 },
+  label: { fontSize: 12, color: colors.textMuted, marginBottom: 2 },
+  value: { fontSize: typography.base, fontWeight: '500', color: colors.textPrimary },
+
   docRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.borderLight,
   },
-  docLabel: {
-    fontSize: 15,
-    color: '#334155',
-    fontWeight: '500',
+  docLabel: { fontSize: typography.base, color: colors.textSecondary, fontWeight: '500' },
+  docStatus: { fontSize: 13, fontWeight: 'bold' },
+
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
   },
-  docStatus: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  inputLabel: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 6,
-  },
+  linkText: { fontSize: typography.base, color: colors.textSecondary, fontWeight: '500' },
+
+  inputLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 6, marginTop: 4 },
   input: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: radii.md,
     padding: 12,
-    fontSize: 15,
-    backgroundColor: '#f8fafc',
-    marginBottom: 16,
+    fontSize: typography.base,
+    backgroundColor: colors.background,
+    marginBottom: spacing.md,
+    color: colors.textPrimary,
   },
   btnPrimary: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.danger,
     padding: 14,
-    borderRadius: 8,
+    borderRadius: radii.md,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 4,
   },
-  btnPrimaryText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  btnPrimaryText: { color: colors.white, fontWeight: 'bold', fontSize: typography.base },
+
   btnLogout: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#fee2e2',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
+    backgroundColor: colors.dangerLight,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
-  btnLogoutText: {
-    color: '#ef4444',
-    fontWeight: 'bold',
-    fontSize: 16,
-  }
+  btnLogoutText: { color: colors.danger, fontWeight: 'bold', fontSize: typography.md },
 });

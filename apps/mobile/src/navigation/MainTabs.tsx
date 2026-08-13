@@ -5,40 +5,43 @@ import ProductsScreen from '../screens/ProductsScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import LedgerScreen from '../screens/LedgerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import { colors } from '../theme/theme';
 
 const Tab = createBottomTabNavigator();
+
+const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
+  'Dashboard': { active: 'home', inactive: 'home-outline' },
+  'Create Order': { active: 'cart', inactive: 'cart-outline' },
+  'Orders': { active: 'list', inactive: 'list-outline' },
+  'Ledger': { active: 'wallet', inactive: 'wallet-outline' },
+  'Profile': { active: 'person', inactive: 'person-outline' },
+};
 
 export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'home';
-
-          if (route.name === 'Dashboard') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Create Order') {
-            iconName = focused ? 'cart' : 'cart-outline';
-          } else if (route.name === 'Orders') {
-            iconName = focused ? 'list' : 'list-outline';
-          } else if (route.name === 'Ledger') {
-            iconName = focused ? 'wallet' : 'wallet-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
+          const icons = TAB_ICONS[route.name] || { active: 'home', inactive: 'home-outline' };
+          return <Ionicons name={focused ? icons.active : icons.inactive} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2563eb',
-        tabBarInactiveTintColor: 'gray',
-        headerShown: true, // Show header for tabs
-        headerStyle: {
-          backgroundColor: '#ffffff',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textLight,
+        tabBarStyle: {
+          borderTopColor: colors.border,
+          backgroundColor: colors.white,
+          height: 58,
+          paddingBottom: 6,
+          paddingTop: 4,
         },
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          color: '#0f172a',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
         },
+        headerShown: true,
+        headerStyle: { backgroundColor: colors.white },
+        headerTitleStyle: { fontWeight: 'bold', color: colors.textPrimary },
+        headerShadowVisible: false,
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />

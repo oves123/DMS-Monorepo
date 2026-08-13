@@ -68,12 +68,12 @@ async function generateInvoicePdf(invoiceData, settings) {
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: Arial, sans-serif; color: #000; font-size: 14px; background: #fff; margin: 0; padding: 20px; }
-            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; }
+            body { font-family: Arial, sans-serif; color: #000; font-size: 13px; background: #fff; margin: 0; padding: 15px; }
+            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; table-layout: fixed; word-wrap: break-word; font-size: 11px; }
             .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px; }
             .excel-table tr { page-break-inside: avoid; }
             tfoot { display: table-row-group; }
-            h2 { margin: 0 0 2px 0; font-size: 18px; font-weight: bold; }
+            h2 { margin: 0 0 2px 0; font-size: 16px; font-weight: bold; }
             p { margin: 0 0 2px 0; }
         </style>
     </head>
@@ -122,18 +122,18 @@ async function generateInvoicePdf(invoiceData, settings) {
             <table class="excel-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center; width: 30px;">#</th>
-                        <th style="text-align: center; width: 50px;">HSN</th>
-                        <th style="text-align: left; width: 30%;">Item Name</th>
-                        <th style="text-align: center; width: 50px;">UOM</th>
-                        <th style="text-align: center; width: 40px;">Qty</th>
-                        <th style="text-align: right; width: 50px;">Rate</th>
-                        <th style="text-align: center; width: 40px;">CGST %</th>
-                        <th style="text-align: right; width: 50px;">CGST Amt</th>
-                        <th style="text-align: center; width: 40px;">SGST %</th>
-                        <th style="text-align: right; width: 50px;">SGST Amt</th>
+                        <th style="text-align: center; width: 25px;">#</th>
+                        <th style="text-align: center; width: 45px;">HSN</th>
+                        <th style="text-align: left; width: auto;">Item Name</th>
+                        <th style="text-align: center; width: 35px;">UOM</th>
+                        <th style="text-align: center; width: 35px;">Qty</th>
+                        <th style="text-align: right; width: 45px;">Rate</th>
+                        <th style="text-align: center; width: 35px;">CGST %</th>
+                        <th style="text-align: right; width: 45px;">CGST Amt</th>
+                        <th style="text-align: center; width: 35px;">SGST %</th>
+                        <th style="text-align: right; width: 45px;">SGST Amt</th>
                         <th style="text-align: right; width: 60px;">Taxable Amt</th>
-                        <th style="text-align: right; width: 70px;">Amount</th>
+                        <th style="text-align: right; width: 60px;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -169,9 +169,11 @@ async function generateInvoicePdf(invoiceData, settings) {
                             ${items.reduce((sum, item) => sum + item.executed_qty, 0)}
                         </td>
                         <td></td>
+                        <td></td>
+                        <td style="text-align: right; font-weight: bold;">${(invoice.cgst_amount || 0).toFixed(2)}</td>
+                        <td></td>
+                        <td style="text-align: right; font-weight: bold;">${(invoice.sgst_amount || 0).toFixed(2)}</td>
                         <td style="text-align: right; font-weight: bold;">${(invoice.subtotal || 0).toFixed(2)}</td>
-                        <td colspan="2" style="text-align: right; font-weight: bold;">${(invoice.cgst_amount || 0).toFixed(2)}</td>
-                        <td colspan="2" style="text-align: right; font-weight: bold;">${(invoice.sgst_amount || 0).toFixed(2)}</td>
                         <td style="text-align: right; font-weight: bold;">${((invoice.subtotal || 0) + (invoice.cgst_amount || 0) + (invoice.sgst_amount || 0)).toFixed(2)}</td>
                     </tr>
                     ${invoice.extra_discount ? `

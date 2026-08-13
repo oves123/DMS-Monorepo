@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { 
   StyleSheet, Text, View, TextInput, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Image
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as SecureStore from '../lib/storage';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import api from '../lib/api';
 
 type RootStackParamList = {
   Login: undefined;
@@ -33,23 +35,18 @@ export default function LoginScreen({ navigation }: Props) {
     
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:5001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phoneNumber, password }),
+      const response = await api.post('/api/auth/login', { 
+        phone_number: phoneNumber, 
+        password 
       });
       
-      const data = await response.json();
+      const data = response.data;
       
-      if (response.ok) {
-        await AsyncStorage.setItem('dms_token', data.token);
-        await AsyncStorage.setItem('dms_user', JSON.stringify(data.user));
-        navigation.replace('MainTabs');
-      } else {
-        setError(data.message || 'Login failed');
-      }
-    } catch (err) {
-      setError('Network Error. Is the backend running?');
+      await SecureStore.setItemAsync('dms_token', data.token);
+      await SecureStore.setItemAsync('dms_user', JSON.stringify(data.user));
+      navigation.replace('MainTabs');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed or Network Error.');
     } finally {
       setIsLoading(false);
     }

@@ -1,210 +1,193 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Linking } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import * as SecureStore from '../lib/storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
+import api from '../lib/api';
+import { ListSkeleton } from '../components/SkeletonLoader';
+import { colors, spacing, radii, typography, shadows } from '../theme/theme';
+import { CreditNote } from '../types';
+
+async function fetchCreditNotes(): Promise<CreditNote[]> {
+  const userStr = await SecureStore.getItemAsync('dms_user');
+  if (!userStr) throw new Error('Not authenticated');
+  const user = JSON.parse(userStr);
+  const response = await api.get(`/api/ledger/credit-note/distributor/${user.user_id}`);
+  return response.data;
+}
 
 export default function ClaimsScreen() {
-  const [creditNotes, setCreditNotes] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchCreditNotes();
-  }, []);
+  const { data: creditNotes = [], isLoading } = useQuery({
+    queryKey: ['creditNotes'],
+    queryFn: fetchCreditNotes,
+  });
 
-  const fetchCreditNotes = async () => {
-    setIsLoading(true);
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+    setIsRefreshing(false);
+  }, [queryClient]);
+
+  const handleDownload = async (cnId: number, cnNumber: string) => {
+    setDownloadingId(cnId);
     try {
-      const userStr = await AsyncStorage.getItem('dms_user');
-      const storedToken = await AsyncStorage.getItem('dms_token');
-      
-      if (!userStr || !storedToken) return;
-      setToken(storedToken);
-      const user = JSON.parse(userStr);
+      const storedToken = await SecureStore.getItemAsync('dms_token');
+      const fileUri = FileSystem.documentDirectory + `${cnNumber}.pdf`;
+      const url = `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001'}/api/ledger/credit-note/${cnId}/download`;
 
-      const response = await fetch(`http://localhost:5001/api/ledger/credit-note/distributor/${user.user_id}`, {
-        headers: { 'Authorization': `Bearer ${storedToken}` }
+      const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
+        headers: { Authorization: `Bearer ${storedToken}` },
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCreditNotes(data);
+
+      if (downloadRes.status === 200) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadRes.uri);
+        }
+      } else {
+        Alert.alert('Download Failed', 'Could not download the credit note PDF.');
       }
     } catch (err) {
-      console.error('Failed to fetch credit notes:', err);
+      Alert.alert('Error', 'An error occurred while downloading.');
     } finally {
-      setIsLoading(false);
+      setDownloadingId(null);
     }
   };
 
-  const handleDownload = (cnId: number, cnNumber: string) => {
-    // In React Native, the easiest way to handle PDF download securely without extra native libs 
-    // is to open it in the default browser if the API allows GET auth, 
-    // or handle it with expo-file-system. For now, we'll alert the user.
-    Linking.openURL(`http://localhost:5001/api/ledger/credit-note/${cnId}/download`);
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={creditNotes}
-        contentContainerStyle={styles.listContent}
-        keyExtractor={(item) => item.credit_note_id.toString()}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyStateText}>No claims or credit notes found.</Text>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+      <View style={styles.container}>
+        {isLoading ? (
+          <View style={{ padding: spacing.lg }}>
+            <ListSkeleton count={4} />
           </View>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cnNumber}>{item.credit_note_number}</Text>
-                <Text style={styles.invoiceNumber}>Against: {item.invoice_number}</Text>
-              </View>
-              <Text style={styles.amount}>₹{item.amount.toFixed(2)}</Text>
-            </View>
-
-            <View style={styles.cardBody}>
-              <View style={styles.dateContainer}>
-                <Ionicons name="calendar-outline" size={14} color="#64748b" />
-                <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString()}</Text>
-              </View>
-
-              <View style={[styles.statusBadge, { backgroundColor: item.is_paid_out ? '#e0e7ff' : '#dcfce7' }]}>
-                <Text style={[styles.statusText, { color: item.is_paid_out ? '#4f46e5' : '#166534' }]}>
-                  {item.is_paid_out ? `Refunded via ${item.payment_mode}` : 'Added to Wallet'}
+        ) : (
+          <FlatList
+            data={creditNotes}
+            keyExtractor={(item) => item.credit_note_id.toString()}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Ionicons name="document-text-outline" size={48} color={colors.textLight} />
+                <Text style={styles.emptyStateTitle}>No Claims Yet</Text>
+                <Text style={styles.emptyStateText}>
+                  Credit notes issued against your orders will appear here.
                 </Text>
               </View>
-            </View>
+            }
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View>
+                    <Text style={styles.cnNumber}>{item.credit_note_number}</Text>
+                    <Text style={styles.invoiceNumber}>Against: {item.invoice_number}</Text>
+                  </View>
+                  <Text style={styles.amount}>₹{item.amount.toFixed(2)}</Text>
+                </View>
 
-            <View style={styles.cardFooter}>
-              <TouchableOpacity 
-                style={styles.downloadBtn}
-                onPress={() => handleDownload(item.credit_note_id, item.credit_note_number)}
-              >
-                <Ionicons name="download-outline" size={16} color="#475569" />
-                <Text style={styles.downloadBtnText}>Download PDF</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                <View style={styles.cardBody}>
+                  <View style={styles.dateContainer}>
+                    <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
+                    <Text style={styles.dateText}>{new Date(item.created_at).toLocaleDateString('en-IN')}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: item.is_paid_out ? colors.infoLight : colors.successLight }]}>
+                    <Text style={[styles.statusText, { color: item.is_paid_out ? '#4f46e5' : colors.success }]}>
+                      {item.is_paid_out ? `Refunded via ${item.payment_mode}` : 'Added to Wallet'}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.downloadBtn, downloadingId === item.credit_note_id && styles.downloadBtnLoading]}
+                  onPress={() => handleDownload(item.credit_note_id, item.credit_note_number)}
+                  disabled={downloadingId === item.credit_note_id}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={downloadingId === item.credit_note_id ? 'hourglass-outline' : 'download-outline'}
+                    size={15}
+                    color={downloadingId === item.credit_note_id ? colors.textLight : colors.textSecondary}
+                  />
+                  <Text style={[styles.downloadBtnText, downloadingId === item.credit_note_id && { color: colors.textLight }]}>
+                    {downloadingId === item.credit_note_id ? 'Downloading...' : 'Download PDF'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
         )}
-      />
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listContent: {
-    padding: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 60,
-  },
-  emptyStateText: {
-    color: '#64748b',
-    fontSize: 16,
-    marginTop: 12,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
+  listContent: { padding: spacing.lg },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 24 },
+  emptyStateTitle: { fontSize: typography.lg, fontWeight: 'bold', color: colors.textPrimary, marginTop: 16 },
+  emptyStateText: { color: colors.textMuted, fontSize: typography.sm, marginTop: 8, textAlign: 'center' },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
+    ...shadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
-  cnNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  invoiceNumber: {
-    fontSize: 13,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  amount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#059669',
-  },
+  cnNumber: { fontSize: typography.md, fontWeight: 'bold', color: colors.textPrimary },
+  invoiceNumber: { fontSize: 12, color: colors.textMuted, marginTop: 3 },
+  amount: { fontSize: 20, fontWeight: 'bold', color: colors.success },
   cardBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#f1f5f9',
-    marginBottom: 12,
+    borderColor: colors.borderLight,
+    marginBottom: spacing.md,
   },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  dateText: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cardFooter: {
-    alignItems: 'flex-end',
-  },
+  dateContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dateText: { fontSize: 13, color: colors.textMuted },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.md },
+  statusText: { fontSize: 12, fontWeight: '600' },
   downloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.md,
   },
-  downloadBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-  },
+  downloadBtnLoading: { borderColor: colors.border, backgroundColor: colors.borderLight },
+  downloadBtnText: { fontSize: typography.sm, fontWeight: '600', color: colors.textSecondary },
 });
