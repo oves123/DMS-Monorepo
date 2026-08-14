@@ -458,7 +458,8 @@ exports.generateDraftPdf = async (req, res) => {
                     hsn_code: prod.hsn_code,
                     product_name: prod.product_name,
                     pack_size: prod.pack_size,
-                    uom: prod.uom
+                    uom: prod.uom,
+                    gst_percent: prod.gst_percent
                 });
             }
         }

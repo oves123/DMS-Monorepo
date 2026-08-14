@@ -17,6 +17,7 @@ export interface Variant {
   pack_size: string;
   mrp: number;
   price: number;
+  distributor_rate?: number;
   stock_qty: number;
   uom: string;
   hsn_code: string;

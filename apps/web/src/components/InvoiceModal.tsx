@@ -239,8 +239,9 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 <tbody>
                   {sortItemsByCategory(data.items).map((item: any, idx: number) => {
                     const taxableAmt = item.executed_qty * item.price_at_order;
-                    const cgstRate = settings?.cgst_rate || 2.5;
-                    const sgstRate = settings?.sgst_rate || 2.5;
+                    const gstPct = parseFloat(item.gst_percent) || 0;
+                    const cgstRate = gstPct / 2;
+                    const sgstRate = gstPct / 2;
                     const cgstAmt = taxableAmt * (cgstRate / 100);
                     const sgstAmt = taxableAmt * (sgstRate / 100);
                     const rowTotal = taxableAmt + cgstAmt + sgstAmt;
@@ -281,17 +282,21 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     </td>
                     <td colSpan={2} style={{ border: '1px solid #000', padding: '4px' }}></td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {(data.invoice.cgst_amount || 0).toFixed(2)}
+                      {data.items.reduce((sum: number, item: any) => sum + (item.executed_qty * item.price_at_order * ((parseFloat(item.gst_percent) || 0) / 2 / 100)), 0).toFixed(2)}
                     </td>
                     <td style={{ border: '1px solid #000', padding: '4px' }}></td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {(data.invoice.sgst_amount || 0).toFixed(2)}
+                      {data.items.reduce((sum: number, item: any) => sum + (item.executed_qty * item.price_at_order * ((parseFloat(item.gst_percent) || 0) / 2 / 100)), 0).toFixed(2)}
                     </td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                       {(data.invoice.subtotal || 0).toFixed(2)}
                     </td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {((data.invoice.grand_total || 0) + (data.invoice.extra_discount || 0) + (data.invoice.credit_applied || 0)).toFixed(2)}
+                      {data.items.reduce((sum: number, item: any) => {
+                          const taxable = item.executed_qty * item.price_at_order;
+                          const gstPct = parseFloat(item.gst_percent) || 0;
+                          return sum + taxable + (taxable * (gstPct / 100));
+                      }, 0).toFixed(2)}
                     </td>
                   </tr>
                   {(data.invoice.extra_discount > 0 || data.invoice.credit_applied > 0) && (
@@ -321,7 +326,11 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                           FINAL PAYABLE AMOUNT
                         </td>
                         <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f1f5f9', color: '#2563eb' }}>
-                          {(data.invoice.grand_total || 0).toFixed(2)}
+                          {(data.items.reduce((sum: number, item: any) => {
+                              const taxable = item.executed_qty * item.price_at_order;
+                              const gstPct = parseFloat(item.gst_percent) || 0;
+                              return sum + taxable + (taxable * (gstPct / 100));
+                          }, 0) - (data.invoice.extra_discount || 0) - (data.invoice.credit_applied || 0)).toFixed(2)}
                         </td>
                       </tr>
                     </>

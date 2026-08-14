@@ -69,7 +69,7 @@ exports.getInvoiceDetail = async (req, res) => {
         }
 
         const itemsResult = await request.query(`
-            SELECT oi.order_item_id, oi.variant_id, p.name AS product_name, p.hsn_code, v.uom, c.name AS category_name, v.pack_size, v.pieces_per_box, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
+            SELECT oi.order_item_id, oi.variant_id, p.name AS product_name, p.hsn_code, p.gst_percent, v.uom, c.name AS category_name, v.pack_size, v.pieces_per_box, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
             FROM OrderItems oi
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
@@ -115,7 +115,7 @@ exports.downloadInvoicePdf = async (req, res) => {
         // Let's generate it fresh so it picks up any new UOM/HSN format immediately.
         
         const itemsResult = await request.query(`
-            SELECT p.name AS product_name, p.hsn_code, v.uom, c.name AS category_name, v.pack_size, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
+            SELECT p.name AS product_name, p.hsn_code, p.gst_percent, v.uom, c.name AS category_name, v.pack_size, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
             FROM OrderItems oi
             JOIN ProductVariants v ON oi.variant_id = v.variant_id
             JOIN Products p ON v.product_id = p.product_id
@@ -532,8 +532,9 @@ exports.issueCreditNote = async (req, res) => {
         } else {
             for (let item of items) {
                 const itemTaxable = item.item_total;
-                const itemCGST = itemTaxable * (cgstRate / 100);
-                const itemSGST = itemTaxable * (sgstRate / 100);
+                const gstPct = parseFloat(item.gst_percent) || 0;
+                const itemCGST = itemTaxable * ((gstPct / 2) / 100);
+                const itemSGST = itemTaxable * ((gstPct / 2) / 100);
                 totalCreditAmount += (itemTaxable + itemCGST + itemSGST);
             }
             finalItems = items;

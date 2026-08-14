@@ -139,8 +139,9 @@ async function generateInvoicePdf(invoiceData, settings) {
                 <tbody>
                     ${sortItemsByCategory(items).map((item, idx) => {
                         const taxableAmt = item.executed_qty * item.price_at_order;
-                        const cgstRate = settings?.cgst_rate || 2.5;
-                        const sgstRate = settings?.sgst_rate || 2.5;
+                        const gstPct = parseFloat(item.gst_percent) || 0;
+                        const cgstRate = gstPct / 2;
+                        const sgstRate = gstPct / 2;
                         const cgstAmt = taxableAmt * (cgstRate / 100);
                         const sgstAmt = taxableAmt * (sgstRate / 100);
                         const rowTotal = taxableAmt + cgstAmt + sgstAmt;
@@ -170,11 +171,15 @@ async function generateInvoicePdf(invoiceData, settings) {
                         </td>
                         <td></td>
                         <td></td>
-                        <td style="text-align: right; font-weight: bold;">${(invoice.cgst_amount || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">${items.reduce((sum, item) => sum + (item.executed_qty * item.price_at_order * ((parseFloat(item.gst_percent) || 0) / 2 / 100)), 0).toFixed(2)}</td>
                         <td></td>
-                        <td style="text-align: right; font-weight: bold;">${(invoice.sgst_amount || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">${items.reduce((sum, item) => sum + (item.executed_qty * item.price_at_order * ((parseFloat(item.gst_percent) || 0) / 2 / 100)), 0).toFixed(2)}</td>
                         <td style="text-align: right; font-weight: bold;">${(invoice.subtotal || 0).toFixed(2)}</td>
-                        <td style="text-align: right; font-weight: bold;">${((invoice.subtotal || 0) + (invoice.cgst_amount || 0) + (invoice.sgst_amount || 0)).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">${items.reduce((sum, item) => {
+                            const taxable = item.executed_qty * item.price_at_order;
+                            const gstPct = parseFloat(item.gst_percent) || 0;
+                            return sum + taxable + (taxable * (gstPct / 100));
+                        }, 0).toFixed(2)}</td>
                     </tr>
                     ${invoice.extra_discount ? `
                     <tr>
@@ -183,7 +188,11 @@ async function generateInvoicePdf(invoiceData, settings) {
                     </tr>
                     <tr>
                         <td colspan="11" style="text-align: right; font-weight: bold;">FINAL PAYABLE</td>
-                        <td style="text-align: right; font-weight: bold;">${(invoice.grand_total || 0).toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">${(items.reduce((sum, item) => {
+                            const taxable = item.executed_qty * item.price_at_order;
+                            const gstPct = parseFloat(item.gst_percent) || 0;
+                            return sum + taxable + (taxable * (gstPct / 100));
+                        }, 0) - (invoice.extra_discount || 0) - (invoice.credit_applied || 0)).toFixed(2)}</td>
                     </tr>
                     ` : ''}
                 </tfoot>
@@ -504,8 +513,9 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                 <tbody>
                     ${items.map((item, idx) => {
                         const taxableAmt = item.item_total;
-                        const cgstRate = settings?.cgst_rate || 2.5;
-                        const sgstRate = settings?.sgst_rate || 2.5;
+                        const gstPct = parseFloat(item.gst_percent) || 0;
+                        const cgstRate = gstPct / 2;
+                        const sgstRate = gstPct / 2;
                         const cgstAmt = taxableAmt * (cgstRate / 100);
                         const sgstAmt = taxableAmt * (sgstRate / 100);
                         const rowTotal = taxableAmt + cgstAmt + sgstAmt;
@@ -535,10 +545,10 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                         </td>
                         <td></td>
                         <td colspan="2" style="text-align: right; font-weight: bold;">
-                            ${items.reduce((sum, item) => sum + (item.item_total * ((settings?.cgst_rate || 2.5) / 100)), 0).toFixed(2)}
+                            ${items.reduce((sum, item) => sum + (item.item_total * (((parseFloat(item.gst_percent) || 0) / 2) / 100)), 0).toFixed(2)}
                         </td>
                         <td colspan="2" style="text-align: right; font-weight: bold;">
-                            ${items.reduce((sum, item) => sum + (item.item_total * ((settings?.sgst_rate || 2.5) / 100)), 0).toFixed(2)}
+                            ${items.reduce((sum, item) => sum + (item.item_total * (((parseFloat(item.gst_percent) || 0) / 2) / 100)), 0).toFixed(2)}
                         </td>
                         <td style="text-align: right; font-weight: bold;">
                             ${items.reduce((sum, item) => sum + item.item_total, 0).toFixed(2)}

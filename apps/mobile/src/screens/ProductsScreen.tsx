@@ -1,14 +1,15 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, RefreshControl
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, RefreshControl, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as SecureStore from '../lib/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import api from '../lib/api';
 import ProductCard from '../components/ProductCard';
 import { ListSkeleton } from '../components/SkeletonLoader';
@@ -41,7 +42,7 @@ async function fetchCatalogAndWallet() {
 }
 
 export default function ProductsScreen() {
-  const navigation = useNavigation<BottomTabNavigationProp<any>>();
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const queryClient = useQueryClient();
 
   const [orderData, setOrderData] = useState<Record<number, number>>({});
@@ -49,34 +50,85 @@ export default function ProductsScreen() {
   const [applyWallet, setApplyWallet] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Draft Loading (syncs whenever screen comes into focus)
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem('@dms_draft_order').then((draft) => {
+        if (draft) {
+          try {
+            setOrderData(JSON.parse(draft));
+          } catch (e) {
+            console.error("Failed to parse draft order", e);
+          }
+        } else {
+          setOrderData({}); // Clear if draft was removed (e.g. after successful order)
+        }
+      });
+    }, [])
+  );
+
+  // Draft Saving (throttle/debounce slightly or just use effect)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      AsyncStorage.setItem('@dms_draft_order', JSON.stringify(orderData));
+    }, 500); // 500ms debounce for saving
+    return () => clearTimeout(timer);
+  }, [orderData]);
+
+  // Search Debounce
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['catalog'],
     queryFn: fetchCatalogAndWallet,
   });
 
-  // When catalog loads, auto-expand all products
-  React.useEffect(() => {
-    if (data?.catalog) {
+  const catalog = data?.catalog || [];
+  const walletBalance = data?.walletBalance || 0;
+
+  // When catalog loads for the first time, auto-expand all products
+  useEffect(() => {
+    if (data?.catalog && Object.keys(expandedProducts).length === 0) {
       const initial: Record<number, boolean> = {};
       data.catalog.forEach((p: any) => { initial[p.product_id] = true; });
       setExpandedProducts(initial);
     }
   }, [data?.catalog]);
 
-  const catalog = data?.catalog || [];
-  const walletBalance = data?.walletBalance || 0;
-  const userId = data?.userId;
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    catalog.forEach((p: any) => {
+      if (p.category_name) cats.add(p.category_name);
+    });
+    return ['All', ...Array.from(cats)].sort();
+  }, [catalog]);
 
   const filteredCatalog = useMemo(() => {
-    if (!searchQuery.trim()) return catalog;
-    const q = searchQuery.toLowerCase();
-    return catalog.filter((p: any) =>
-      (p.product_name || p.name || '').toLowerCase().includes(q) ||
-      p.category?.toLowerCase().includes(q)
-    );
-  }, [catalog, searchQuery]);
+    let result = catalog;
+    if (selectedCategory !== 'All') {
+      result = result.filter((p: any) => p.category_name === selectedCategory);
+    }
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase();
+      result = result.filter((p: any) =>
+        (p.product_name || p.name || '').toLowerCase().includes(q) ||
+        p.category_name?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [catalog, debouncedSearchQuery, selectedCategory]);
 
   const { grandTotalQty, grandTotalValue } = useMemo(() => {
     let q = 0;
@@ -86,7 +138,7 @@ export default function ProductsScreen() {
         const qty = orderData[variant.variant_id];
         if (qty) {
           q += qty;
-          v += qty * variant.distributor_rate;
+          v += qty * (variant.distributor_rate || variant.price || 0);
         }
       });
     });
@@ -96,6 +148,15 @@ export default function ProductsScreen() {
   const handleToggle = useCallback((productId: number) => {
     setExpandedProducts(prev => ({ ...prev, [productId]: !prev[productId] }));
   }, []);
+
+  const handleToggleAll = useCallback(() => {
+    const anyCollapsed = catalog.some((p: any) => !expandedProducts[p.product_id]);
+    const newState: Record<number, boolean> = {};
+    catalog.forEach((p: any) => {
+      newState[p.product_id] = anyCollapsed;
+    });
+    setExpandedProducts(newState);
+  }, [catalog, expandedProducts]);
 
   const handleQtyChange = useCallback((variantId: number, value: string) => {
     const qty = parseInt(value, 10);
@@ -113,82 +174,67 @@ export default function ProductsScreen() {
     setIsRefreshing(false);
   }, [queryClient]);
 
-  const handleSubmitOrder = async () => {
+  const handleReviewCart = () => {
     if (grandTotalQty === 0) {
-      Alert.alert('Empty Order', 'Please enter at least one quantity to place an order.');
+      Alert.alert('Empty Cart', 'Please add at least one item before reviewing your cart.');
       return;
     }
-
-    const finalAmount = applyWallet
-      ? Math.max(0, grandTotalValue - walletBalance)
-      : grandTotalValue;
-
-    Alert.alert(
-      'Confirm Order',
-      `Place order for ${grandTotalQty} boxes totaling ₹${finalAmount.toFixed(2)}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Place Order',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              const userStr = await SecureStore.getItemAsync('dms_user');
-              const user = JSON.parse(userStr!);
-
-              const items: any[] = [];
-              catalog.forEach((product: any) => {
-                product.variants.forEach((variant: any) => {
-                  const qty = orderData[variant.variant_id];
-                  if (qty) items.push({
-                    variant_id: variant.variant_id,
-                    requested_qty: qty,
-                    price_at_order: variant.distributor_rate,
-                  });
-                });
-              });
-
-              await api.post('/api/orders', {
-                distributor_id: user.user_id,
-                items,
-                apply_wallet: applyWallet ? 1 : 0,
-              });
-
-              Alert.alert('Success! 🎉', 'Your order has been placed successfully!');
-              setOrderData({});
-              setApplyWallet(false);
-              queryClient.invalidateQueries({ queryKey: ['orders'] });
-              navigation.navigate('Orders');
-            } catch {
-              Alert.alert('Error', 'Failed to place order. Please try again.');
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
-        },
-      ]
-    );
+    navigation.navigate('Cart');
   };
+
+  const isAllExpanded = catalog.every((p: any) => expandedProducts[p.product_id]);
 
   const ListHeader = (
     <>
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products or category..."
-          placeholderTextColor={colors.textLight}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          clearButtonMode="while-editing"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={18} color={colors.textLight} />
-          </TouchableOpacity>
-        )}
+      <View style={styles.headerActions}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search catalog..."
+            placeholderTextColor={colors.textLight}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textLight} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Toggle All Button */}
+        <TouchableOpacity style={styles.toggleAllBtn} onPress={handleToggleAll} activeOpacity={0.7}>
+          <Ionicons name={isAllExpanded ? "contract" : "expand"} size={16} color={colors.primary} />
+          <Text style={styles.toggleAllText}>{isAllExpanded ? "Collapse All" : "Expand All"}</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Category Tabs */}
+      {categories.length > 0 && (
+        <View style={styles.categoriesWrapper}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
+          >
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.categoryPill, selectedCategory === cat && styles.categoryPillActive]}
+                onPress={() => setSelectedCategory(cat)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.categoryPillText, selectedCategory === cat && styles.categoryPillTextActive]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Wallet Banner */}
       {walletBalance > 0 && (
@@ -235,6 +281,9 @@ export default function ProductsScreen() {
             contentContainerStyle={styles.listContent}
             ListHeaderComponent={ListHeader}
             keyboardShouldPersistTaps="handled"
+            initialNumToRender={10}
+            windowSize={5}
+            removeClippedSubviews={true}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -246,7 +295,9 @@ export default function ProductsScreen() {
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Ionicons name="search-outline" size={48} color={colors.textLight} />
-                <Text style={styles.emptyStateText}>No products found for "{searchQuery}"</Text>
+                <Text style={styles.emptyStateText}>
+                  {searchQuery ? `No products found for "${searchQuery}"` : `No products in "${selectedCategory}"`}
+                </Text>
               </View>
             }
             renderItem={({ item }) => (
@@ -282,19 +333,13 @@ export default function ProductsScreen() {
           </View>
 
           <TouchableOpacity
-            style={[styles.checkoutBtn, (isSubmitting || grandTotalQty === 0) && styles.checkoutBtnDisabled]}
-            onPress={handleSubmitOrder}
-            disabled={isSubmitting || grandTotalQty === 0}
+            style={[styles.checkoutBtn, (grandTotalQty === 0) && styles.checkoutBtnDisabled]}
+            onPress={handleReviewCart}
+            disabled={grandTotalQty === 0}
             activeOpacity={0.85}
           >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.checkoutBtnText}>Confirm Order</Text>
-              </>
-            )}
+            <Ionicons name="cart" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.checkoutBtnText}>Review Cart (₹{grandTotalValue.toFixed(0)})</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -305,9 +350,16 @@ export default function ProductsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1 },
-  listContent: { padding: spacing.lg, paddingBottom: 24 },
+  listContent: { padding: spacing.lg, paddingBottom: 24, paddingTop: spacing.sm },
   skeletonContainer: { padding: spacing.lg },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
@@ -316,7 +368,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
-    marginBottom: spacing.md,
     ...shadows.card,
   },
   searchIcon: { marginRight: 8 },
@@ -324,6 +375,54 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.base,
     color: colors.textPrimary,
+  },
+  toggleAllBtn: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  toggleAllText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  categoriesWrapper: {
+    marginHorizontal: -spacing.lg,
+    marginBottom: spacing.md,
+  },
+  categoriesContent: {
+    paddingHorizontal: spacing.lg,
+    gap: 8,
+    paddingVertical: 4,
+  },
+  categoryPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radii.full,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
+    elevation: 1,
+  },
+  categoryPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  categoryPillTextActive: {
+    color: colors.white,
   },
   walletCard: {
     backgroundColor: colors.white,
@@ -347,8 +446,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    padding: spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? 32 : spacing.lg,
+    padding: spacing.md,
+    paddingBottom: Platform.OS === 'ios' ? 24 : spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
@@ -358,20 +457,20 @@ const styles = StyleSheet.create({
   summaryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   summaryLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  summaryValue: { fontSize: 22, fontWeight: 'bold', color: colors.textPrimary },
-  totalPrice: { fontSize: 24, fontWeight: 'bold', color: colors.success },
+  summaryValue: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary },
+  totalPrice: { fontSize: 20, fontWeight: 'bold', color: colors.success },
   strikethroughPrice: {
-    fontSize: 15,
+    fontSize: 13,
     color: colors.textLight,
     textDecorationLine: 'line-through',
     marginRight: 8,
@@ -379,11 +478,12 @@ const styles = StyleSheet.create({
   checkoutBtn: {
     backgroundColor: colors.primary,
     borderRadius: radii.md,
-    padding: spacing.lg,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkoutBtnDisabled: { backgroundColor: colors.textLight },
-  checkoutBtnText: { color: colors.white, fontSize: typography.md, fontWeight: 'bold' },
+  checkoutBtnText: { color: colors.white, fontSize: typography.base, fontWeight: 'bold' },
 });

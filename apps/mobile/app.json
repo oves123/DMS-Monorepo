@@ -1,22 +1,21 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Jolliz",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/logo.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.qaiscode.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -24,6 +23,11 @@
     "plugins": [
       "expo-secure-store",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ab90d886-7750-4189-a45c-d852842ea4e0"
+      }
+    }
   }
 }

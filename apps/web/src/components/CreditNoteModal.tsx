@@ -132,8 +132,13 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
     ? Number(Object.values(selectedItems).reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0))
     : (parseFloat(directAmount) || 0);
   
-  const gstRate = 5; // 2.5 + 2.5
-  const totalWithGst: number = totalCalculatedCredit * (1 + (gstRate/100));
+  const totalWithGst: number = mode === 'defective'
+    ? Number(Object.values(selectedItems).reduce((sum: number, item: any) => {
+        const itemTotal = calculateItemTotal(item);
+        const gstPct = parseFloat(item.gst_percent) || 0;
+        return sum + (itemTotal * (1 + (gstPct/100)));
+      }, 0))
+    : (parseFloat(directAmount) || 0) * 1.05;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,7 +178,8 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
                 total_qty: totalQty,
                 product_name: i.product_name,
                 pack_size: i.pack_size,
-                hsn_code: i.hsn_code
+                hsn_code: i.hsn_code,
+                gst_percent: i.gst_percent
             };
         }).filter((i: any) => i.total_qty > 0);
 

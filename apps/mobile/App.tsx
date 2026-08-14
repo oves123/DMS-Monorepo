@@ -6,12 +6,14 @@ import LoginScreen from './src/screens/LoginScreen';
 import MainTabs from './src/navigation/MainTabs';
 import ReportsScreen from './src/screens/ReportsScreen';
 import ClaimsScreen from './src/screens/ClaimsScreen';
+import CartScreen from './src/screens/CartScreen';
 
 type RootStackParamList = {
   Login: undefined;
   MainTabs: undefined;
   Reports: undefined;
   Claims: undefined;
+  Cart: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -40,6 +42,7 @@ export default function App() {
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Reports" component={ReportsScreen} options={{ headerShown: true, title: 'Reports & Analytics' }} />
             <Stack.Screen name="Claims" component={ClaimsScreen} options={{ headerShown: true, title: 'Claims & Credits' }} />
+            <Stack.Screen name="Cart" component={CartScreen} options={{ headerShown: true, title: 'Review Order' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </QueryClientProvider>
