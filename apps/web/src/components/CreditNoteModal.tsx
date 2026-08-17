@@ -369,7 +369,7 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
             <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '14px' }}>
                     Taxable Amount: <strong>₹{totalCalculatedCredit.toFixed(2)}</strong><br/>
-                    Estimated Total (+GST): <strong style={{ color: '#ef4444' }}>₹{totalWithGst.toFixed(2)}</strong>
+                    Estimated Total (+GST): <strong style={{ color: '#ef4444' }}>₹{Math.round(totalWithGst).toFixed(2)}</strong>
                 </div>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }}>

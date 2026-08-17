@@ -68,9 +68,9 @@ async function generateInvoicePdf(invoiceData, settings) {
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: Arial, sans-serif; color: #000; font-size: 13px; background: #fff; margin: 0; padding: 15px; }
-            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; table-layout: fixed; word-wrap: break-word; font-size: 11px; }
-            .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px; }
+            body { font-family: Arial, sans-serif; color: #000; font-size: 13px; background: #fff; margin: 0; padding: 10px 5px; }
+            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; font-size: 10px; }
+            .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px 2px; }
             .excel-table tr { page-break-inside: avoid; }
             tfoot { display: table-row-group; }
             h2 { margin: 0 0 2px 0; font-size: 16px; font-weight: bold; }
@@ -122,18 +122,18 @@ async function generateInvoicePdf(invoiceData, settings) {
             <table class="excel-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center; width: 25px;">#</th>
-                        <th style="text-align: center; width: 45px;">HSN</th>
-                        <th style="text-align: left; width: auto;">Item Name</th>
-                        <th style="text-align: center; width: 35px;">UOM</th>
-                        <th style="text-align: center; width: 35px;">Qty</th>
-                        <th style="text-align: right; width: 45px;">Rate</th>
-                        <th style="text-align: center; width: 35px;">CGST %</th>
-                        <th style="text-align: right; width: 45px;">CGST Amt</th>
-                        <th style="text-align: center; width: 35px;">SGST %</th>
-                        <th style="text-align: right; width: 45px;">SGST Amt</th>
-                        <th style="text-align: right; width: 60px;">Taxable Amt</th>
-                        <th style="text-align: right; width: 60px;">Amount</th>
+                        <th style="text-align: center; width: 3%;">#</th>
+                        <th style="text-align: center; width: 6%;">HSN</th>
+                        <th style="text-align: left; width: 35%;">Item Name</th>
+                        <th style="text-align: center; width: 4%;">UOM</th>
+                        <th style="text-align: center; width: 4%;">Qty</th>
+                        <th style="text-align: right; width: 6%;">Rate</th>
+                        <th style="text-align: center; width: 4%;">CGST %</th>
+                        <th style="text-align: right; width: 6%;">CGST Amt</th>
+                        <th style="text-align: center; width: 4%;">SGST %</th>
+                        <th style="text-align: right; width: 6%;">SGST Amt</th>
+                        <th style="text-align: right; width: 10%;">Taxable Amt</th>
+                        <th style="text-align: right; width: 12%;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -150,7 +150,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                         <tr>
                             <td style="text-align: center;">${idx + 1}</td>
                             <td style="text-align: center;">${item.hsn_code || '-'}</td>
-                            <td style="font-weight: bold;">${item.product_name} - ${formatPackSize(item.pack_size)}</td>
+                            <td style="font-weight: bold; white-space: nowrap;">${item.product_name} - ${formatPackSize(item.pack_size)}</td>
                             <td style="text-align: center;">${item.uom || 'Box'}</td>
                             <td style="text-align: center; font-weight: bold;">${item.executed_qty}</td>
                             <td style="text-align: right; font-weight: bold;">${item.price_at_order}</td>
@@ -159,7 +159,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                             <td style="text-align: center;">${sgstRate}%</td>
                             <td style="text-align: right;">${sgstAmt.toFixed(2)}</td>
                             <td style="text-align: right; font-weight: bold;">${taxableAmt.toFixed(2)}</td>
-                            <td style="text-align: right; font-weight: bold;">${rowTotal.toFixed(2)}</td>
+                            <td style="text-align: right; font-weight: bold;">${Math.round(rowTotal).toFixed(2)}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -175,11 +175,11 @@ async function generateInvoicePdf(invoiceData, settings) {
                         <td></td>
                         <td style="text-align: right; font-weight: bold;">${items.reduce((sum, item) => sum + (item.executed_qty * item.price_at_order * ((parseFloat(item.gst_percent) || 0) / 2 / 100)), 0).toFixed(2)}</td>
                         <td style="text-align: right; font-weight: bold;">${(invoice.subtotal || 0).toFixed(2)}</td>
-                        <td style="text-align: right; font-weight: bold;">${items.reduce((sum, item) => {
+                        <td style="text-align: right; font-weight: bold;">${Math.round(items.reduce((sum, item) => {
                             const taxable = item.executed_qty * item.price_at_order;
                             const gstPct = parseFloat(item.gst_percent) || 0;
                             return sum + taxable + (taxable * (gstPct / 100));
-                        }, 0).toFixed(2)}</td>
+                        }, 0)).toFixed(2)}</td>
                     </tr>
                     ${invoice.extra_discount ? `
                     <tr>
@@ -188,7 +188,7 @@ async function generateInvoicePdf(invoiceData, settings) {
                     </tr>
                     <tr>
                         <td colspan="11" style="text-align: right; font-weight: bold;">FINAL PAYABLE</td>
-                        <td style="text-align: right; font-weight: bold;">${(items.reduce((sum, item) => {
+                        <td style="text-align: right; font-weight: bold;">${Math.round(items.reduce((sum, item) => {
                             const taxable = item.executed_qty * item.price_at_order;
                             const gstPct = parseFloat(item.gst_percent) || 0;
                             return sum + taxable + (taxable * (gstPct / 100));
@@ -448,9 +448,9 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: Arial, sans-serif; color: #000; font-size: 14px; background: #fff; margin: 0; padding: 20px; }
-            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; }
-            .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px; }
+            body { font-family: Arial, sans-serif; color: #000; font-size: 13px; background: #fff; margin: 0; padding: 10px 5px; }
+            .excel-table { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; font-size: 10px; }
+            .excel-table td, .excel-table th { border: 1px solid #000; padding: 4px 2px; }
             .excel-table tr { page-break-inside: avoid; }
             tfoot { display: table-row-group; }
             h2 { margin: 0 0 2px 0; font-size: 18px; font-weight: bold; }
@@ -496,18 +496,18 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
             <table class="excel-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center; width: 30px;">Sr. No</th>
-                        <th style="text-align: center; width: 50px;">HSN</th>
-                        <th style="text-align: left; width: 30%;">Item Name</th>
-                        <th style="text-align: center; width: 50px;">UOM</th>
-                        <th style="text-align: center; width: 40px;">Qty</th>
-                        <th style="text-align: right; width: 50px;">Rate</th>
-                        <th style="text-align: center; width: 40px;">CGST %</th>
-                        <th style="text-align: right; width: 50px;">CGST Amt</th>
-                        <th style="text-align: center; width: 40px;">SGST %</th>
-                        <th style="text-align: right; width: 50px;">SGST Amt</th>
-                        <th style="text-align: right; width: 70px;">Taxable Amt</th>
-                        <th style="text-align: right; width: 70px;">Amount</th>
+                        <th style="text-align: center; width: 3%;">Sr. No</th>
+                        <th style="text-align: center; width: 6%;">HSN</th>
+                        <th style="text-align: left; width: 35%;">Item Name</th>
+                        <th style="text-align: center; width: 4%;">UOM</th>
+                        <th style="text-align: center; width: 4%;">Qty</th>
+                        <th style="text-align: right; width: 6%;">Rate</th>
+                        <th style="text-align: center; width: 4%;">CGST %</th>
+                        <th style="text-align: right; width: 6%;">CGST Amt</th>
+                        <th style="text-align: center; width: 4%;">SGST %</th>
+                        <th style="text-align: right; width: 6%;">SGST Amt</th>
+                        <th style="text-align: right; width: 10%;">Taxable Amt</th>
+                        <th style="text-align: right; width: 12%;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -524,7 +524,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                         <tr>
                             <td style="text-align: center;">${idx + 1}</td>
                             <td style="text-align: center;">${item.hsn_code || '-'}</td>
-                            <td style="font-weight: bold;">${item.product_name}${item.pack_size && item.pack_size !== '-' ? ` - ${item.pack_size}` : ''}</td>
+                            <td style="font-weight: bold; white-space: nowrap;">${item.product_name}${item.pack_size && item.pack_size !== '-' ? ` - ${item.pack_size}` : ''}</td>
                             <td style="text-align: center;">${item.pack_size === '-' ? '-' : (item.uom || 'Pcs')}</td>
                             <td style="text-align: center; font-weight: bold;">${item.quantity || item.pieces_qty || item.total_qty || 0}</td>
                             <td style="text-align: right; font-weight: bold;">${item.price_at_order.toFixed(2)}</td>
@@ -533,7 +533,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                             <td style="text-align: center;">${sgstRate}%</td>
                             <td style="text-align: right;">${sgstAmt.toFixed(2)}</td>
                             <td style="text-align: right; font-weight: bold;">${taxableAmt.toFixed(2)}</td>
-                            <td style="text-align: right; font-weight: bold;">${rowTotal.toFixed(2)}</td>
+                            <td style="text-align: right; font-weight: bold;">${Math.round(rowTotal).toFixed(2)}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -553,7 +553,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                         <td style="text-align: right; font-weight: bold;">
                             ${items.reduce((sum, item) => sum + item.item_total, 0).toFixed(2)}
                         </td>
-                        <td style="text-align: right; font-weight: bold;">${credit_note.amount.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: bold;">${Math.round(credit_note.amount).toFixed(2)}</td>
                     </tr>
                 </tfoot>
             </table>

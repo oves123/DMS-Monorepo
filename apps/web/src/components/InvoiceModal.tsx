@@ -268,7 +268,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                           {taxableAmt.toFixed(2)}
                         </td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', textAlign: 'right', fontWeight: 'bold' }}>
-                          {rowTotal.toFixed(2)}
+                          {Math.round(rowTotal).toFixed(2)}
                         </td>
                       </tr>
                     );
@@ -292,11 +292,11 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                       {(data.invoice.subtotal || 0).toFixed(2)}
                     </td>
                     <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                      {data.items.reduce((sum: number, item: any) => {
+                      {Math.round(data.items.reduce((sum: number, item: any) => {
                           const taxable = item.executed_qty * item.price_at_order;
                           const gstPct = parseFloat(item.gst_percent) || 0;
                           return sum + taxable + (taxable * (gstPct / 100));
-                      }, 0).toFixed(2)}
+                      }, 0)).toFixed(2)}
                     </td>
                   </tr>
                   {(data.invoice.extra_discount > 0 || data.invoice.credit_applied > 0) && (
@@ -326,7 +326,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                           FINAL PAYABLE AMOUNT
                         </td>
                         <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#f1f5f9', color: '#2563eb' }}>
-                          {(data.items.reduce((sum: number, item: any) => {
+                          {Math.round(data.items.reduce((sum: number, item: any) => {
                               const taxable = item.executed_qty * item.price_at_order;
                               const gstPct = parseFloat(item.gst_percent) || 0;
                               return sum + taxable + (taxable * (gstPct / 100));
