@@ -3,6 +3,7 @@ import api from '../lib/api';
 import { Search, Filter, Package } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { useAutoSave, useNavigationWarning } from '../hooks/useAutoSave';
+import { formatIndianNumber, formatCurrencyDetailed } from '../lib/utils';
 
 const AdminInventory = () => {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -174,11 +175,11 @@ const AdminInventory = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Total Warehouse Value</div>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534' }}>₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534' }} title={'₹' + formatCurrencyDetailed(totalValue)}>₹{formatIndianNumber(totalValue)}</div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Total Items in Stock</div>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a' }}>{totalItems.toLocaleString('en-IN')}</div>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a' }} title={totalItems.toLocaleString('en-IN')}>{formatIndianNumber(totalItems)}</div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase' }}>Critical Items (Low Stock)</div>

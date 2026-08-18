@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import { Download, Search, ChevronDown, ChevronRight, FileSpreadsheet, TrendingDown, Wallet, Banknote, AlertCircle } from 'lucide-react';
+import { formatIndianNumber, formatCurrencyDetailed } from '../lib/utils';
 
 const AdminClaims = () => {
   const [creditNotes, setCreditNotes] = useState<any[]>([]);
@@ -224,21 +225,21 @@ const AdminClaims = () => {
             <TrendingDown size={20} color="#ef4444" />
             Total Credit Issued (This Month)
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>₹{metrics.totalCredit.toFixed(2)}</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }} title={'₹' + formatCurrencyDetailed(metrics.totalCredit)}>₹{formatIndianNumber(metrics.totalCredit)}</div>
         </div>
         <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
             <Banknote size={20} color="#f59e0b" />
             Total Refunded (Cash/UPI)
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>₹{metrics.totalRefunded.toFixed(2)}</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }} title={'₹' + formatCurrencyDetailed(metrics.totalRefunded)}>₹{formatIndianNumber(metrics.totalRefunded)}</div>
         </div>
         <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
             <Wallet size={20} color="#3b82f6" />
             Total Credited to Wallets
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }}>₹{metrics.totalWallet.toFixed(2)}</div>
+          <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#111827' }} title={'₹' + formatCurrencyDetailed(metrics.totalWallet)}>₹{formatIndianNumber(metrics.totalWallet)}</div>
         </div>
         <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#6b7280', fontSize: '14px', fontWeight: 600 }}>
@@ -279,7 +280,7 @@ const AdminClaims = () => {
           </select>
 
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '10px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', outline: 'none', fontSize: '14px', backgroundColor: '#fff', minWidth: '150px' }}>
-            <option value="all">All Statuses</option>
+            <option value="all">All Status</option>
             <option value="refunded">Refunded (Cash/UPI)</option>
             <option value="wallet">Added to Wallet</option>
           </select>

@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../lib/api';
-import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge, Eye, EyeOff, BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
 import DistributorLedgerModal from '../components/DistributorLedgerModal';
@@ -46,6 +46,17 @@ const AdminDistributors = () => {
   
   // Ledger Modal State
   const [ledgerDistributor, setLedgerDistributor] = useState<{id: number, name: string} | null>(null);
+
+  // Expandable Row State
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+
+  const toggleRow = (id: number) => {
+    if (expandedRow === id) {
+      setExpandedRow(null);
+    } else {
+      setExpandedRow(id);
+    }
+  };
 
   useEffect(() => {
     fetchDistributors();
@@ -421,113 +432,142 @@ const AdminDistributors = () => {
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '40px' }}></th>
                     <th>Firm Name</th>
-                    <th>Owner Name</th>
                     <th>Phone Number</th>
-                    <th>GST Number</th>
-                    <th>FSSAI Number</th>
                     <th>Rate Type</th>
                     <th>Wallet Balance</th>
-                    <th>Address</th>
-                    <th>Files</th>
-                    <th>Reg. Date</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentItems.length > 0 ? (
                     currentItems.map((d) => (
-                      <tr key={d.user_id}>
-                        <td style={{ fontWeight: 500 }}>{d.firm_name}</td>
-                        <td>{d.owner_name || '-'}</td>
-                        <td>{d.phone_number}</td>
-                        <td>{d.gst_number || '-'}</td>
-                        <td>{d.fssai_number || '-'}</td>
-                        <td>
-                          {d.rate_type === 'retailer' ? (
-                            <span style={{ background: '#fef3c7', color: '#d97706', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>Retailer</span>
-                          ) : (
-                            <span style={{ background: '#e0e7ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>Distributor</span>
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{d.wallet_balance ? parseFloat(d.wallet_balance).toFixed(2) : '0.00'}</td>
-                        <td>{d.address || '-'}</td>
-                        <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                          {d.has_pan === 1 && (
-                            <button onClick={() => handleViewFile(d.user_id, 'pan')} title="View PAN" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                              <FileText size={16} color="#3b82f6" />
+                      <React.Fragment key={d.user_id}>
+                        <tr 
+                          style={{ cursor: 'pointer', transition: 'background 0.2s', background: expandedRow === d.user_id ? '#f1f5f9' : 'transparent' }} 
+                          onClick={() => toggleRow(d.user_id)}
+                        >
+                          <td style={{ textAlign: 'center' }}>
+                            {expandedRow === d.user_id ? <ChevronDown size={18} color="#6b7280" /> : <ChevronRight size={18} color="#6b7280" />}
+                          </td>
+                          <td style={{ fontWeight: 500 }}>{d.firm_name}</td>
+                          <td>{d.phone_number}</td>
+                          <td>
+                            {d.rate_type === 'retailer' ? (
+                              <span style={{ background: '#fef3c7', color: '#d97706', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>Retailer</span>
+                            ) : (
+                              <span style={{ background: '#e0e7ff', color: '#4f46e5', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 }}>Distributor</span>
+                            )}
+                          </td>
+                          <td style={{ fontWeight: 'bold', color: '#059669' }}>₹{d.wallet_balance ? parseFloat(d.wallet_balance).toFixed(2) : '0.00'}</td>
+                          <td style={{ display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => setLedgerDistributor({ id: d.user_id, name: d.firm_name })}
+                              title="View Ledger"
+                              style={{ 
+                                background: '#f0fdf4', border: 'none', color: '#16a34a', cursor: 'pointer', padding: '6px',
+                                borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
+                            >
+                              <BookOpen size={16} />
                             </button>
-                          )}
-                          {d.has_aadhar === 1 && (
-                            <button onClick={() => handleViewFile(d.user_id, 'aadhar')} title="View Aadhar" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                              <FileBadge size={16} color="#10b981" />
+                            <button 
+                              onClick={() => openEditModal(d)}
+                              title="Edit Distributor"
+                              style={{ 
+                                background: '#eff6ff', 
+                                border: 'none', 
+                                color: 'var(--primary)', 
+                                cursor: 'pointer', 
+                                padding: '6px',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
+                            >
+                              <Edit size={16} />
                             </button>
-                          )}
-                          {d.has_photo === 1 && (
-                            <button onClick={() => handleViewFile(d.user_id, 'photo')} title="View Photo" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                              <Image size={16} color="#8b5cf6" />
+                            <button 
+                              onClick={() => handleDelete(d.user_id)}
+                              title="Delete Distributor"
+                              style={{ 
+                                background: '#fef2f2', 
+                                border: 'none', 
+                                color: '#ef4444', 
+                                cursor: 'pointer',
+                                padding: '6px',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'background 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+                            >
+                              <Trash2 size={16} />
                             </button>
-                          )}
-                          {d.has_pan !== 1 && d.has_aadhar !== 1 && d.has_photo !== 1 && (
-                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>None</span>
-                          )}
-                        </td>
-                        <td>{new Date(d.created_at).toLocaleDateString()}</td>
-                        <td style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button 
-                            onClick={() => setLedgerDistributor({ id: d.user_id, name: d.firm_name })}
-                            title="View Ledger"
-                            style={{ 
-                              background: '#f0fdf4', border: 'none', color: '#16a34a', cursor: 'pointer', padding: '6px',
-                              borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
-                          >
-                            <BookOpen size={16} />
-                          </button>
-                          <button 
-                            onClick={() => openEditModal(d)}
-                            title="Edit Distributor"
-                            style={{ 
-                              background: '#eff6ff', 
-                              border: 'none', 
-                              color: 'var(--primary)', 
-                              cursor: 'pointer', 
-                              padding: '6px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(d.user_id)}
-                            title="Delete Distributor"
-                            style={{ 
-                              background: '#fef2f2', 
-                              border: 'none', 
-                              color: '#ef4444', 
-                              cursor: 'pointer',
-                              padding: '6px',
-                              borderRadius: '6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'background 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
+                        {expandedRow === d.user_id && (
+                          <tr style={{ background: '#f8fafc', borderTop: 'none' }}>
+                            <td colSpan={6} style={{ padding: '24px 32px', borderTop: 'none' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                                <div>
+                                  <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Owner Name</span>
+                                  <span style={{ fontWeight: 500, color: '#0f172a' }}>{d.owner_name || '-'}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>GST Number</span>
+                                  <span style={{ fontWeight: 500, color: '#0f172a' }}>{d.gst_number || '-'}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>FSSAI Number</span>
+                                  <span style={{ fontWeight: 500, color: '#0f172a' }}>{d.fssai_number || '-'}</span>
+                                </div>
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Address</span>
+                                  <span style={{ fontWeight: 500, color: '#0f172a' }}>{d.address || '-'}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Registration Date</span>
+                                  <span style={{ fontWeight: 500, color: '#0f172a' }}>{new Date(d.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#64748b', fontSize: '12px', display: 'block', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 600 }}>Documents</span>
+                                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                    {d.has_pan === 1 && (
+                                      <button onClick={() => handleViewFile(d.user_id, 'pan')} title="View PAN" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#1d4ed8' }}>
+                                        <FileText size={14} /> PAN
+                                      </button>
+                                    )}
+                                    {d.has_aadhar === 1 && (
+                                      <button onClick={() => handleViewFile(d.user_id, 'aadhar')} title="View Aadhar" style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '4px', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#047857' }}>
+                                        <FileBadge size={14} /> Aadhar
+                                      </button>
+                                    )}
+                                    {d.has_photo === 1 && (
+                                      <button onClick={() => handleViewFile(d.user_id, 'photo')} title="View Photo" style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '4px', cursor: 'pointer', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#6d28d9' }}>
+                                        <Image size={14} /> Photo
+                                      </button>
+                                    )}
+                                    {d.has_pan !== 1 && d.has_aadhar !== 1 && d.has_photo !== 1 && (
+                                      <span style={{ color: '#9ca3af', fontSize: '13px' }}>None Uploaded</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))
                   ) : (
                     <tr>

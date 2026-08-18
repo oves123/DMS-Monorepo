@@ -4,6 +4,7 @@ import InvoiceModal from '../components/InvoiceModal';
 import CreditNoteModal from '../components/CreditNoteModal';
 import { Search, Filter, Trash2, CreditCard, ChevronRight, ChevronDown, Download, PlusCircle } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { formatIndianNumber, formatCurrencyDetailed } from '../lib/utils';
 
 const AdminLedger = () => {
   const [ledger, setLedger] = useState<any[]>([]);
@@ -134,21 +135,21 @@ const AdminLedger = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Invoices</div>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-main)' }}>
-              {filteredLedger.reduce((sum, dist) => sum + dist.total_invoices, 0)}
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-main)' }} title={filteredLedger.reduce((sum, dist) => sum + dist.total_invoices, 0).toLocaleString('en-IN')}>
+              {formatIndianNumber(filteredLedger.reduce((sum, dist) => sum + dist.total_invoices, 0))}
             </div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Billed</div>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#4f46e5' }}>₹{totalRevenue.toFixed(2)}</div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#4f46e5' }} title={'₹' + formatCurrencyDetailed(totalRevenue)}>₹{formatIndianNumber(totalRevenue)}</div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Paid</div>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#059669' }}>₹{totalPaid.toFixed(2)}</div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#059669' }} title={'₹' + formatCurrencyDetailed(totalPaid)}>₹{formatIndianNumber(totalPaid)}</div>
           </div>
           <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '6px' }}>Total Pending</div>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc2626' }}>₹{totalPending.toFixed(2)}</div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc2626' }} title={'₹' + formatCurrencyDetailed(totalPending)}>₹{formatIndianNumber(totalPending)}</div>
           </div>
         </div>
       )}
@@ -190,7 +191,7 @@ const AdminLedger = () => {
                     onChange={(e) => setStatusFilter(e.target.value)}
                     style={{ padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '14px', cursor: 'pointer', backgroundColor: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                   >
-                    <option value="All">All Statuses</option>
+                    <option value="All">All Status</option>
                     <option value="Has Pending">Has Pending</option>
                     <option value="Fully Paid">Fully Paid</option>
                   </select>
