@@ -496,64 +496,31 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
             <table class="excel-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center; width: 3%;">Sr. No</th>
-                        <th style="text-align: center; width: 6%;">HSN</th>
-                        <th style="text-align: left; width: 35%;">Item Name</th>
-                        <th style="text-align: center; width: 4%;">UOM</th>
-                        <th style="text-align: center; width: 4%;">Qty</th>
-                        <th style="text-align: right; width: 6%;">Rate</th>
-                        <th style="text-align: center; width: 4%;">CGST %</th>
-                        <th style="text-align: right; width: 6%;">CGST Amt</th>
-                        <th style="text-align: center; width: 4%;">SGST %</th>
-                        <th style="text-align: right; width: 6%;">SGST Amt</th>
-                        <th style="text-align: right; width: 10%;">Taxable Amt</th>
-                        <th style="text-align: right; width: 12%;">Amount</th>
+                        <th style="text-align: center; width: 10%;">Sr. no</th>
+                        <th style="text-align: center; width: 70%;">Particulars</th>
+                        <th style="text-align: center; width: 20%;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${items.map((item, idx) => {
                         const taxableAmt = item.item_total;
                         const gstPct = parseFloat(item.gst_percent) || 0;
-                        const cgstRate = gstPct / 2;
-                        const sgstRate = gstPct / 2;
-                        const cgstAmt = taxableAmt * (cgstRate / 100);
-                        const sgstAmt = taxableAmt * (sgstRate / 100);
+                        const cgstAmt = taxableAmt * ((gstPct / 2) / 100);
+                        const sgstAmt = taxableAmt * ((gstPct / 2) / 100);
                         const rowTotal = taxableAmt + cgstAmt + sgstAmt;
 
                         return `
                         <tr>
-                            <td style="text-align: center;">${idx + 1}</td>
-                            <td style="text-align: center;">${item.hsn_code || '-'}</td>
-                            <td style="font-weight: bold; white-space: nowrap;">${item.product_name}${item.pack_size && item.pack_size !== '-' ? ` - ${item.pack_size}` : ''}</td>
-                            <td style="text-align: center;">${item.pack_size === '-' ? '-' : (item.uom || 'Pcs')}</td>
-                            <td style="text-align: center; font-weight: bold;">${item.quantity || item.pieces_qty || item.total_qty || 0}</td>
-                            <td style="text-align: right; font-weight: bold;">${item.price_at_order.toFixed(2)}</td>
-                            <td style="text-align: center;">${cgstRate}%</td>
-                            <td style="text-align: right;">${cgstAmt.toFixed(2)}</td>
-                            <td style="text-align: center;">${sgstRate}%</td>
-                            <td style="text-align: right;">${sgstAmt.toFixed(2)}</td>
-                            <td style="text-align: right; font-weight: bold;">${taxableAmt.toFixed(2)}</td>
-                            <td style="text-align: right; font-weight: bold;">${Math.round(rowTotal).toFixed(2)}</td>
+                            <td style="text-align: center; vertical-align: top; padding: 6px; height: 25px;">${idx + 1}</td>
+                            <td style="font-weight: bold; vertical-align: top; padding: 6px;">${item.product_name}${item.pack_size && item.pack_size !== '-' ? ` - ${item.pack_size}` : ''}</td>
+                            <td style="text-align: right; font-weight: bold; vertical-align: top; padding: 6px;">${Math.round(rowTotal).toFixed(2)}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4" style="text-align: right; font-weight: bold;">Total</td>
-                        <td style="text-align: center; font-weight: bold; color: #ef4444;">
-                            ${items.reduce((sum, item) => sum + (item.quantity || item.pieces_qty || item.total_qty || 0), 0)}
-                        </td>
-                        <td></td>
-                        <td colspan="2" style="text-align: right; font-weight: bold;">
-                            ${items.reduce((sum, item) => sum + (item.item_total * (((parseFloat(item.gst_percent) || 0) / 2) / 100)), 0).toFixed(2)}
-                        </td>
-                        <td colspan="2" style="text-align: right; font-weight: bold;">
-                            ${items.reduce((sum, item) => sum + (item.item_total * (((parseFloat(item.gst_percent) || 0) / 2) / 100)), 0).toFixed(2)}
-                        </td>
-                        <td style="text-align: right; font-weight: bold;">
-                            ${items.reduce((sum, item) => sum + item.item_total, 0).toFixed(2)}
-                        </td>
-                        <td style="text-align: right; font-weight: bold;">${Math.round(credit_note.amount).toFixed(2)}</td>
+                        <td colspan="2" style="text-align: right; font-weight: bold; padding: 6px;">Total</td>
+                        <td style="text-align: right; font-weight: bold; padding: 6px;">${Math.round(credit_note.amount).toFixed(2)}</td>
                     </tr>
                 </tfoot>
             </table>
@@ -607,7 +574,8 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
         fs.mkdirSync(dir, { recursive: true });
     }
 
-    const fileName = `cn_${credit_note.credit_note_number}_${Date.now()}.pdf`;
+    const safeNumber = String(credit_note.credit_note_number).replace(/[\/\\]/g, '_');
+    const fileName = `cn_${safeNumber}_${Date.now()}.pdf`;
     const filePath = path.join(dir, fileName);
 
     await page.pdf({

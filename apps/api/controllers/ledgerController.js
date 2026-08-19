@@ -514,9 +514,7 @@ exports.issueCreditNote = async (req, res) => {
 
         if (is_direct_amount) {
             const taxable = parseFloat(direct_amount);
-            const cgstAmt = taxable * (cgstRate / 100);
-            const sgstAmt = taxable * (sgstRate / 100);
-            totalCreditAmount = taxable + cgstAmt + sgstAmt;
+            totalCreditAmount = taxable;
             finalItems = [{
                 variant_id: null,
                 quantity: 1,
