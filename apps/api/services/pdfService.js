@@ -528,6 +528,7 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
             <div style="display: flex; min-height: 150px; page-break-inside: avoid;">
                 <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000; font-size: 13px; font-weight: bold;">
                     <p>Note:</p>
+                    ${credit_note.applied_details ? `<p style="color: #059669;">Amount Applied To: ${credit_note.applied_details}</p>` : ''}
                     <p>1. Order By: ${distributorDetails.owner_name || '-'}</p>
                     <p>2. Goods Check Before Received:</p>
                     <p>3. Subject to jurisdiction : Palghar</p>

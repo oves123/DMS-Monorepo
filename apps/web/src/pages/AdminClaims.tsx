@@ -340,7 +340,13 @@ const AdminClaims = () => {
                         <td style={{ padding: '16px' }}><span style={{ fontWeight: '600', color: '#16a34a' }}>₹{cn.amount.toFixed(2)}</span></td>
                         <td style={{ padding: '16px' }}>
                           {cn.is_paid_out ? (
-                            <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#eff6ff', color: '#1d4ed8', borderRadius: '9999px' }}>Refunded via {cn.payment_mode || 'Cash'}</span>
+                            <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#eff6ff', color: '#1d4ed8', borderRadius: '9999px' }} title={cn.applied_details || ''}>Refunded via {cn.payment_mode || 'Cash'}</span>
+                          ) : cn.applied_details && cn.applied_details.startsWith('Wallet') && !cn.applied_details.includes(',') ? (
+                            <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#f0fdf4', color: '#15803d', borderRadius: '9999px' }} title={cn.applied_details}>Added to Wallet</span>
+                          ) : cn.applied_details ? (
+                            <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#e0e7ff', color: '#4338ca', borderRadius: '9999px', cursor: 'help' }} title={cn.applied_details}>
+                              {cn.applied_details.includes('Wallet') ? 'Applied & Wallet' : 'Applied to Invoice'}
+                            </span>
                           ) : (
                             <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: '500', backgroundColor: '#f0fdf4', color: '#15803d', borderRadius: '9999px' }}>Added to Wallet</span>
                           )}

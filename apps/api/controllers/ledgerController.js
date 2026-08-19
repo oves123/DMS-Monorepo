@@ -15,7 +15,7 @@ exports.getInvoices = async (req, res) => {
             JOIN Users u ON o.distributor_id = u.user_id
             ORDER BY i.created_at DESC
         `);
-        
+
         const ledgerMap = {};
         result.recordset.forEach(row => {
             if (!ledgerMap[row.distributor_id]) {
@@ -29,15 +29,15 @@ exports.getInvoices = async (req, res) => {
                     invoices: []
                 };
             }
-            
+
             ledgerMap[row.distributor_id].total_invoices += 1;
             ledgerMap[row.distributor_id].total_billed += row.grand_total;
             ledgerMap[row.distributor_id].total_paid += (row.paid_amount || 0);
             ledgerMap[row.distributor_id].total_pending += (row.grand_total - (row.paid_amount || 0));
-            
+
             ledgerMap[row.distributor_id].invoices.push(row);
         });
-        
+
         res.json(Object.values(ledgerMap));
     } catch (err) {
         console.error(err);
@@ -110,10 +110,10 @@ exports.downloadInvoicePdf = async (req, res) => {
         }
 
         const invoice = invResult.recordset[0];
-        
+
         // If we already generated it, you could choose to return it. But for now let's just generate it fresh to ensure data is updated, or check it.
         // Let's generate it fresh so it picks up any new UOM/HSN format immediately.
-        
+
         const itemsResult = await request.query(`
             SELECT p.name AS product_name, p.hsn_code, p.gst_percent, v.uom, c.name AS category_name, v.pack_size, oi.executed_qty, oi.price_at_order, (oi.executed_qty * oi.price_at_order) as item_total
             FROM OrderItems oi
@@ -162,7 +162,7 @@ exports.recordPayment = async (req, res) => {
         const recordedBy = adminId || 1; // Fallback to 1 if no auth is present
         const request = new sql.Request();
         request.input('invoice_id', sql.Int, invoice_id);
-        
+
         // get invoice and distributor info
         const invCheck = await request.query(`
             SELECT i.grand_total, i.paid_amount, o.distributor_id 
@@ -171,7 +171,7 @@ exports.recordPayment = async (req, res) => {
             WHERE i.invoice_id = @invoice_id
         `);
         if (invCheck.recordset.length === 0) return res.status(404).json({ message: 'Invoice not found' });
-        
+
         const invoice = invCheck.recordset[0];
         const newPaidAmount = Number(invoice.paid_amount || 0) + Number(amount);
         let newStatus = 'PARTIAL';
@@ -187,14 +187,14 @@ exports.recordPayment = async (req, res) => {
         request.input('reference_no', sql.VarChar(100), reference_no || '');
         request.input('payment_date', sql.DateTime, payment_date ? new Date(payment_date) : new Date());
         request.input('recorded_by', sql.Int, recordedBy);
-        
+
         await request.query(`
             INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
             VALUES (@invoice_id, @distributor_id, @amount, @payment_mode, @reference_no, @payment_date, @recorded_by)
         `);
 
         // Update invoice
-        request.input('newPaidAmount', sql.Decimal(18,2), newPaidAmount);
+        request.input('newPaidAmount', sql.Decimal(18, 2), newPaidAmount);
         request.input('newStatus', sql.VarChar(20), newStatus);
         await request.query(`
             UPDATE Invoices 
@@ -215,7 +215,7 @@ exports.recordBulkPayment = async (req, res) => {
     try {
         const { distributor_id, amount, payment_mode, reference_no, payment_date, adminId } = req.body;
         const recordedBy = adminId || 1; // Fallback to 1
-        
+
         let remainingAmount = Number(amount);
         if (remainingAmount <= 0) return res.status(400).json({ message: 'Invalid amount' });
 
@@ -239,9 +239,9 @@ exports.recordBulkPayment = async (req, res) => {
 
             const pendingOnInvoice = Number(inv.grand_total) - Number(inv.paid_amount);
             const amountToApply = Math.min(remainingAmount, pendingOnInvoice);
-            
+
             remainingAmount -= amountToApply;
-            
+
             const newPaidAmount = Number(inv.paid_amount) + amountToApply;
             let newStatus = 'PARTIAL';
             if (newPaidAmount >= Number(inv.grand_total) - 0.01) {
@@ -257,7 +257,7 @@ exports.recordBulkPayment = async (req, res) => {
             payReq.input('reference_no', sql.VarChar(100), reference_no || '');
             payReq.input('payment_date', sql.DateTime, payment_date ? new Date(payment_date) : new Date());
             payReq.input('recorded_by', sql.Int, recordedBy);
-            
+
             await payReq.query(`
                 INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
                 VALUES (@invoice_id, @distributor_id, @amount, @payment_mode, @reference_no, @payment_date, @recorded_by)
@@ -265,7 +265,7 @@ exports.recordBulkPayment = async (req, res) => {
 
             // Update Invoice
             const updateReq = new sql.Request(transaction);
-            updateReq.input('newPaidAmount', sql.Decimal(18,2), newPaidAmount);
+            updateReq.input('newPaidAmount', sql.Decimal(18, 2), newPaidAmount);
             updateReq.input('newStatus', sql.VarChar(20), newStatus);
             updateReq.input('invoice_id', sql.Int, inv.invoice_id);
             await updateReq.query(`
@@ -277,7 +277,7 @@ exports.recordBulkPayment = async (req, res) => {
 
         if (remainingAmount > 0) {
             const wallReq = new sql.Request(transaction);
-            wallReq.input('add_amt', sql.Decimal(18,2), remainingAmount);
+            wallReq.input('add_amt', sql.Decimal(18, 2), remainingAmount);
             wallReq.input('dist_id', sql.Int, distributor_id);
             await wallReq.query(`
                 UPDATE Users 
@@ -321,14 +321,14 @@ exports.getDistributorLedger = async (req, res) => {
         // We will return summary + past 20 payments + all unpaid invoices
         const request = new sql.Request();
         request.input('dist_id', sql.Int, req.params.distributor_id);
-        
+
         const summaryRes = await request.query(`
             SELECT SUM(grand_total) as total_billed, SUM(paid_amount) as total_paid
             FROM Invoices i
             JOIN Orders o ON i.order_id = o.order_id
             WHERE o.distributor_id = @dist_id
         `);
-        
+
         const unpaidRes = await request.query(`
             SELECT i.invoice_id, i.invoice_number, i.grand_total, i.paid_amount, i.created_at, o.order_id
             FROM Invoices i
@@ -377,7 +377,7 @@ exports.deleteInvoice = async (req, res) => {
                     DELETE FROM Invoices WHERE invoice_id = @inv_id;
                 END
             `);
-            
+
         res.json({ message: 'Invoice deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -391,18 +391,18 @@ exports.downloadDistributorLedger = async (req, res) => {
         const distId = req.params.distributor_id;
         const request = new sql.Request();
         request.input('dist_id', sql.Int, distId);
-        
+
         // Get Settings
         const settingsRes = await request.query(`SELECT TOP 1 * FROM CompanySettings`);
         const settings = settingsRes.recordset[0] || {};
-        
+
         // Get Distributor Details
         const distRes = await request.query(`
             SELECT TOP 1 u.firm_name, u.owner_name, u.address, u.phone_number, u.user_id as distributor_id
             FROM Users u WHERE u.user_id = @dist_id
         `);
         const distributorDetails = distRes.recordset[0];
-        
+
         if (!distributorDetails) {
             return res.status(404).json({ message: 'Distributor not found' });
         }
@@ -414,7 +414,7 @@ exports.downloadDistributorLedger = async (req, res) => {
             JOIN Orders o ON i.order_id = o.order_id
             WHERE o.distributor_id = @dist_id
         `);
-        
+
         const summary = summaryRes.recordset[0] || { total_billed: 0, total_paid: 0 };
         summary.total_pending = (summary.total_billed || 0) - (summary.total_paid || 0);
 
@@ -444,7 +444,7 @@ exports.downloadDistributorLedger = async (req, res) => {
                 credit: null
             });
         });
-        
+
         paymentsRes.recordset.forEach(pay => {
             history.push({
                 date: pay.date,
@@ -488,7 +488,7 @@ exports.issueCreditNote = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const { distributor_id, invoice_id, items, is_paid_out, payment_mode, adminId, is_direct_amount, direct_amount, reason } = req.body;
-        
+
         if (!distributor_id) {
             return res.status(400).json({ message: 'Invalid data for credit note' });
         }
@@ -541,7 +541,7 @@ exports.issueCreditNote = async (req, res) => {
         const currentDate = new Date();
         const currentMonth = currentDate.getMonth();
         const currentYear = currentDate.getFullYear();
-        
+
         let startYear, endYear;
         if (currentMonth >= 3) {
             startYear = currentYear;
@@ -561,21 +561,21 @@ exports.issueCreditNote = async (req, res) => {
               AND CHARINDEX('/', credit_note_number) > 0
         `);
         let nextSeq = seqRes.recordset[0].next_seq;
-        
+
         // Offset for the current year since 31 invoices were already created externally
         if (finYearString === '2026-2027' && nextSeq === 1) {
             nextSeq = 32;
         }
 
         const creditNoteNumber = `${nextSeq}/${finYearString}`;
-        
+
         const finalPaymentMode = is_paid_out ? payment_mode : 'Credit Note (Wallet)';
 
         // 3. Insert CreditNote
         request.input('credit_note_number', sql.VarChar(50), creditNoteNumber);
         request.input('distributor_id', sql.Int, distributor_id);
         request.input('invoice_id', sql.Int, is_direct_amount ? null : invoice_id);
-        request.input('amount', sql.Decimal(12,2), totalCreditAmount);
+        request.input('amount', sql.Decimal(12, 2), totalCreditAmount);
         request.input('payment_mode', sql.VarChar(50), finalPaymentMode);
         request.input('is_paid_out', sql.Bit, is_paid_out ? 1 : 0);
 
@@ -595,8 +595,8 @@ exports.issueCreditNote = async (req, res) => {
             itemReq.input('quantity', sql.Int, item.quantity);
             itemReq.input('pieces_qty', sql.Int, item.pieces_qty);
             itemReq.input('reason', sql.VarChar(255), item.reason || '');
-            itemReq.input('price_at_order', sql.Decimal(10,2), item.price_at_order);
-            itemReq.input('item_total', sql.Decimal(12,2), item.item_total);
+            itemReq.input('price_at_order', sql.Decimal(10, 2), item.price_at_order);
+            itemReq.input('item_total', sql.Decimal(12, 2), item.item_total);
 
             await itemReq.query(`
                 INSERT INTO CreditNoteItems (credit_note_id, variant_id, quantity, pieces_qty, reason, price_at_order, item_total)
@@ -604,97 +604,117 @@ exports.issueCreditNote = async (req, res) => {
             `);
         }
 
-        // 5. Apply Credit Note as Payment
-        const applyReq = new sql.Request(transaction);
-        applyReq.input('invoice_id_pay', sql.Int, is_direct_amount ? null : invoice_id);
-        applyReq.input('dist_id_pay', sql.Int, distributor_id);
-        applyReq.input('cn_amt', sql.Decimal(18,2), totalCreditAmount);
-        applyReq.input('cn_pm', sql.VarChar(50), is_direct_amount && is_paid_out ? `Paid Out: ${payment_mode}` : 'Credit Note Applied');
-        applyReq.input('cn_ref', sql.VarChar(100), `CN: ${creditNoteNumber}`);
-        applyReq.input('recorded_by', sql.Int, adminId || 1);
+        // 5. Apply Credit Note using Auto-Reconciliation
+        let remainingCredit = totalCreditAmount;
+        const appliedDetailsArr = [];
+        let finalAppliedDetails = '';
 
-        // Record positive payment for the credit note
-        await applyReq.query(`
-            INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
-            VALUES (@invoice_id_pay, @dist_id_pay, @cn_amt, @cn_pm, @cn_ref, GETDATE(), @recorded_by)
-        `);
-
-        if (!is_direct_amount) {
-            // Check if invoice overpaid
-            const checkReq = new sql.Request(transaction);
-            checkReq.input('invoice_id_check', sql.Int, invoice_id);
-            checkReq.input('added_amt', sql.Decimal(18,2), totalCreditAmount);
-            const checkRes = await checkReq.query(`
-                UPDATE Invoices 
-                SET paid_amount = ISNULL(paid_amount, 0) + @added_amt
-                OUTPUT INSERTED.paid_amount, INSERTED.grand_total
-                WHERE invoice_id = @invoice_id_check
+        if (is_paid_out) {
+            // Refund directly to Cash/UPI without wallet or invoices
+            const payOutReq = new sql.Request(transaction);
+            payOutReq.input('inv_id', sql.Int, is_direct_amount ? null : invoice_id);
+            payOutReq.input('dist_id', sql.Int, distributor_id);
+            payOutReq.input('amt', sql.Decimal(18, 2), -totalCreditAmount); // Note: Refund is negative in Payments normally, but since we are just logging the CN, let's keep it positive for the credit note and negative for refund? Wait, if it's paid out, we just don't add to wallet. Actually, let's just log it as a refund payment.
+            payOutReq.input('pm', sql.VarChar(50), `Refund: ${payment_mode}`);
+            payOutReq.input('ref', sql.VarChar(100), `CN: ${creditNoteNumber}`);
+            payOutReq.input('rec_by', sql.Int, adminId || 1);
+            await payOutReq.query(`
+                INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
+                VALUES (@inv_id, @dist_id, @amt, @pm, @ref, GETDATE(), @rec_by)
             `);
-            
-            const newPaid = checkRes.recordset[0].paid_amount;
-            const grandTotal = checkRes.recordset[0].grand_total;
-            const excess = newPaid - grandTotal;
+            appliedDetailsArr.push(`Refunded via ${payment_mode} (₹${totalCreditAmount.toFixed(2)})`);
+        } else {
+            // Auto-Reconciliation for Unpaid Invoices
+            const unpaidReq = new sql.Request(transaction);
+            unpaidReq.input('dist_id', sql.Int, distributor_id);
+            const unpaidRes = await unpaidReq.query(`
+                SELECT i.invoice_id, i.invoice_number, i.grand_total, ISNULL(i.paid_amount, 0) AS paid_amount, i.created_at
+                FROM Invoices i WITH (UPDLOCK)
+                JOIN Orders o ON i.order_id = o.order_id
+                WHERE o.distributor_id = @dist_id AND i.payment_status != 'PAID'
+                ORDER BY i.created_at ASC
+            `);
+            let pendingInvoices = unpaidRes.recordset;
 
-            // Update status
-            const statusReq = new sql.Request(transaction);
-            statusReq.input('inv_id', sql.Int, invoice_id);
-            statusReq.input('status', sql.VarChar(20), newPaid >= grandTotal ? 'PAID' : 'PARTIAL');
-            await statusReq.query(`UPDATE Invoices SET payment_status = @status WHERE invoice_id = @inv_id`);
-
-            // If excess > 0, we must refund or add to wallet
-            if (excess > 0) {
-                const excessReq = new sql.Request(transaction);
-                excessReq.input('excess_amt', sql.Decimal(18,2), excess);
-                excessReq.input('dist_id_exc', sql.Int, distributor_id);
-                excessReq.input('inv_id_exc', sql.Int, invoice_id);
-                excessReq.input('rec_by', sql.Int, adminId || 1);
-                
-                if (is_paid_out) {
-                    // Refund in cash
-                    excessReq.input('ref_pm', sql.VarChar(50), `Refund - ${payment_mode}`);
-                    excessReq.input('ref_ref', sql.VarChar(100), `Overpaid CN: ${creditNoteNumber}`);
-                    await excessReq.query(`
-                        INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
-                        VALUES (@inv_id_exc, @dist_id_exc, -@excess_amt, @ref_pm, @ref_ref, GETDATE(), @rec_by)
-                    `);
-                    await excessReq.query(`UPDATE Invoices SET paid_amount = paid_amount - @excess_amt WHERE invoice_id = @inv_id_exc`);
+            // If a specific invoice is selected (Defective Products), move it to the top of the queue
+            if (!is_direct_amount && invoice_id) {
+                const specificIdx = pendingInvoices.findIndex(inv => inv.invoice_id === invoice_id);
+                if (specificIdx > -1) {
+                    const specificInv = pendingInvoices.splice(specificIdx, 1)[0];
+                    pendingInvoices.unshift(specificInv);
                 } else {
-                    // Add to wallet
-                    excessReq.input('wall_pm', sql.VarChar(50), `Transfer to Wallet`);
-                    excessReq.input('wall_ref', sql.VarChar(100), `Overpaid CN: ${creditNoteNumber}`);
-                    await excessReq.query(`
-                        INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
-                        VALUES (@inv_id_exc, @dist_id_exc, -@excess_amt, @wall_pm, @wall_ref, GETDATE(), @rec_by)
-                    `);
-                    await excessReq.query(`UPDATE Invoices SET paid_amount = paid_amount - @excess_amt WHERE invoice_id = @inv_id_exc`);
-                    
-                    await excessReq.query(`
-                        UPDATE Users 
-                        SET wallet_balance = COALESCE(wallet_balance, 0) + @excess_amt 
-                        WHERE user_id = @dist_id_exc
-                    `);
+                    // It might be already fully paid. 
+                    // If so, the money just naturally flows to other unpaid invoices (or wallet).
                 }
             }
-        } else {
-            // For direct amounts, we just add to wallet directly if not paid out immediately
-            if (!is_paid_out) {
+
+            for (let inv of pendingInvoices) {
+                if (remainingCredit <= 0.001) break; // Float tolerance
+
+                let pendingAmount = inv.grand_total - inv.paid_amount;
+                if (pendingAmount <= 0) continue;
+
+                let amountToApply = Math.min(pendingAmount, remainingCredit);
+                remainingCredit -= amountToApply;
+
+                const newPaid = inv.paid_amount + amountToApply;
+                // Add a small tolerance for floating point comparison
+                const newStatus = newPaid >= (inv.grand_total - 0.01) ? 'PAID' : 'PARTIAL';
+
+                const applyReq = new sql.Request(transaction);
+                applyReq.input('inv_id', sql.Int, inv.invoice_id);
+                applyReq.input('add_amt', sql.Decimal(18, 2), amountToApply);
+                applyReq.input('status', sql.VarChar(20), newStatus);
+                await applyReq.query(`
+                    UPDATE Invoices 
+                    SET paid_amount = paid_amount + @add_amt, payment_status = @status
+                    WHERE invoice_id = @inv_id
+                `);
+
+                const payReq = new sql.Request(transaction);
+                payReq.input('inv_id', sql.Int, inv.invoice_id);
+                payReq.input('dist_id', sql.Int, distributor_id);
+                payReq.input('amt', sql.Decimal(18, 2), amountToApply);
+                payReq.input('pm', sql.VarChar(50), 'Credit Note Applied');
+                payReq.input('ref', sql.VarChar(100), `CN: ${creditNoteNumber}`);
+                payReq.input('rec_by', sql.Int, adminId || 1);
+                await payReq.query(`
+                    INSERT INTO Payments (invoice_id, distributor_id, amount, payment_mode, reference_no, payment_date, recorded_by)
+                    VALUES (@inv_id, @dist_id, @amt, @pm, @ref, GETDATE(), @rec_by)
+                `);
+
+                appliedDetailsArr.push(`${inv.invoice_number} (₹${amountToApply.toFixed(2)})`);
+            }
+
+            // Leftover goes to wallet
+            if (remainingCredit > 0.001) {
                 const wallReq = new sql.Request(transaction);
-                wallReq.input('add_amt', sql.Decimal(18,2), totalCreditAmount);
                 wallReq.input('dist_id', sql.Int, distributor_id);
+                wallReq.input('amt', sql.Decimal(18, 2), remainingCredit);
                 await wallReq.query(`
                     UPDATE Users 
-                    SET wallet_balance = COALESCE(wallet_balance, 0) + @add_amt 
+                    SET wallet_balance = COALESCE(wallet_balance, 0) + @amt
                     WHERE user_id = @dist_id
                 `);
+                appliedDetailsArr.push(`Wallet (₹${remainingCredit.toFixed(2)})`);
             }
         }
+
+        finalAppliedDetails = appliedDetailsArr.join(', ');
+
+        const updateCnReq = new sql.Request(transaction);
+        updateCnReq.input('cn_id', sql.Int, creditNoteId);
+        updateCnReq.input('details', sql.VarChar(1000), finalAppliedDetails);
+        await updateCnReq.query(`
+            UPDATE CreditNotes SET applied_details = @details WHERE credit_note_id = @cn_id
+        `);
 
         await transaction.commit();
 
         // 6. Generate PDF outside transaction
         try {
             const { generateCreditNotePdf } = require('../services/pdfService');
-            
+
             const distReq = new sql.Request();
             distReq.input('d_id', sql.Int, distributor_id);
             const distRes = await distReq.query(`SELECT firm_name, owner_name, address, fssai_number FROM Users WHERE user_id = @d_id`);
@@ -704,13 +724,14 @@ exports.issueCreditNote = async (req, res) => {
                 credit_note: {
                     credit_note_number: creditNoteNumber,
                     created_at: createdAt,
-                    amount: totalCreditAmount
+                    amount: totalCreditAmount,
+                    applied_details: finalAppliedDetails
                 },
                 items: finalItems
             };
 
             const pdfUrl = await generateCreditNotePdf(creditNoteData, distributorDetails, settings);
-            
+
             const updatePdfReq = new sql.Request();
             updatePdfReq.input('pdf_url', sql.VarChar(255), pdfUrl);
             updatePdfReq.input('cn_id', sql.Int, creditNoteId);
@@ -718,7 +739,7 @@ exports.issueCreditNote = async (req, res) => {
         } catch (pdfErr) {
             console.error('Error generating Credit Note PDF:', pdfErr);
         }
-        
+
         res.json({ message: 'Credit Note issued successfully.' });
     } catch (err) {
         console.error(err);
@@ -734,7 +755,7 @@ exports.getAllCreditNotes = async (req, res) => {
         const result = await request.query(`
             SELECT cn.credit_note_id, cn.credit_note_number, cn.invoice_id, 
                    i.invoice_number, cn.amount, cn.payment_mode, cn.is_paid_out,
-                   cn.pdf_url, cn.created_at,
+                   cn.pdf_url, cn.created_at, cn.applied_details,
                    u.firm_name as distributor_name, u.user_id as distributor_id
             FROM CreditNotes cn
             LEFT JOIN Invoices i ON cn.invoice_id = i.invoice_id
@@ -758,7 +779,7 @@ exports.getCreditNotes = async (req, res) => {
         const result = await request.query(`
             SELECT cn.credit_note_id, cn.credit_note_number, cn.invoice_id, 
                    i.invoice_number, cn.amount, cn.payment_mode, cn.is_paid_out,
-                   cn.pdf_url, cn.created_at
+                   cn.pdf_url, cn.created_at, cn.applied_details
             FROM CreditNotes cn
             LEFT JOIN Invoices i ON cn.invoice_id = i.invoice_id
             WHERE cn.distributor_id = @distributor_id
@@ -778,17 +799,17 @@ exports.downloadCreditNote = async (req, res) => {
         const { credit_note_id } = req.params;
         const request = new sql.Request();
         request.input('credit_note_id', sql.Int, credit_note_id);
-        
+
         const cnRes = await request.query(`SELECT pdf_url FROM CreditNotes WHERE credit_note_id = @credit_note_id`);
-        
+
         if (cnRes.recordset.length === 0 || !cnRes.recordset[0].pdf_url) {
             return res.status(404).json({ message: 'Credit Note PDF not found' });
         }
-        
+
         const path = require('path');
         const fs = require('fs');
         const pdfPath = path.join(__dirname, '../', cnRes.recordset[0].pdf_url);
-        
+
         if (fs.existsSync(pdfPath)) {
             res.download(pdfPath);
         } else {
@@ -805,7 +826,7 @@ exports.getCreditNoteItems = async (req, res) => {
         const { credit_note_id } = req.params;
         const request = new sql.Request();
         request.input('credit_note_id', sql.Int, credit_note_id);
-        
+
         const result = await request.query(`
             SELECT cni.quantity, cni.pieces_qty, cni.reason, cni.price_at_order, cni.item_total,
                    p.name as product_name, v.pack_size
@@ -814,7 +835,7 @@ exports.getCreditNoteItems = async (req, res) => {
             JOIN Products p ON v.product_id = p.product_id
             WHERE cni.credit_note_id = @credit_note_id
         `);
-        
+
         res.json(result.recordset);
     } catch (err) {
         console.error(err);
