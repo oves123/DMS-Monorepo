@@ -540,7 +540,37 @@ exports.issueCreditNote = async (req, res) => {
             finalItems = items;
         }
 
-        const creditNoteNumber = `CN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        
+        let startYear, endYear;
+        if (currentMonth >= 3) {
+            startYear = currentYear;
+            endYear = currentYear + 1;
+        } else {
+            startYear = currentYear - 1;
+            endYear = currentYear;
+        }
+        const finYearString = `${startYear}-${endYear}`;
+
+        const seqReq = new sql.Request(transaction);
+        seqReq.input('finYear', sql.VarChar, `%/${finYearString}`);
+        const seqRes = await seqReq.query(`
+            SELECT ISNULL(MAX(TRY_CAST(SUBSTRING(credit_note_number, 1, CHARINDEX('/', credit_note_number) - 1) AS INT)), 0) + 1 AS next_seq
+            FROM CreditNotes WITH (UPDLOCK)
+            WHERE credit_note_number LIKE @finYear
+              AND CHARINDEX('/', credit_note_number) > 0
+        `);
+        let nextSeq = seqRes.recordset[0].next_seq;
+        
+        // Offset for the current year since 31 invoices were already created externally
+        if (finYearString === '2026-2027' && nextSeq === 1) {
+            nextSeq = 32;
+        }
+
+        const creditNoteNumber = `${nextSeq}/${finYearString}`;
+        
         const finalPaymentMode = is_paid_out ? payment_mode : 'Credit Note (Wallet)';
 
         // 3. Insert CreditNote
