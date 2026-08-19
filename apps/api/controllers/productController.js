@@ -52,7 +52,7 @@ exports.getProducts = async (req, res) => {
             SELECT 
                 p.product_id, p.name as product_name, p.hsn_code, p.gst_percent,
                 c.category_id, c.name as category_name,
-                v.variant_id, v.pack_size, v.uom, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp,
+                v.variant_id, v.pack_size, v.uom, v.pieces_per_box, v.distributor_rate, v.retailer_rate, v.mrp, v.old_distributor_rate, v.old_retailer_rate,
                 ISNULL(i.current_stock_qty, 0) as current_stock
             FROM Products p
             LEFT JOIN Categories c ON p.category_id = c.category_id
@@ -87,6 +87,8 @@ exports.getProducts = async (req, res) => {
                     pieces_per_box: row.pieces_per_box,
                     distributor_rate: isRetailer ? row.retailer_rate : row.distributor_rate,
                     retailer_rate: row.retailer_rate,
+                    old_distributor_rate: row.old_distributor_rate,
+                    old_retailer_rate: row.old_retailer_rate,
                     mrp: row.mrp,
                     current_stock: row.current_stock
                 });

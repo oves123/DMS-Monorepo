@@ -375,7 +375,7 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
                 </div>
                 <div style="flex: 1; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 14px; font-weight: bold;">
                     <p>For Anand Enterprises</p>
-                    <br><br>
+                    <img src="${signatureBase64}" alt="Signature" style="width: 100px; height: auto; margin: 10px 0;" />
                     <p>Authorised Signatory</p>
                 </div>
             </div>
@@ -566,9 +566,9 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
                     <p>3. Subject to jurisdiction : Palghar</p>
                 </div>
                 <div style="flex: 1; padding: 4px 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; font-size: 14px; font-weight: bold;">
-                    <p>Anand Enterprises</p>
+                    <p>For Anand Enterprises</p>
                     <img src="${signatureBase64}" alt="Signature" style="width: 100px; height: auto; margin: 10px 0;" />
-                    <p>Authorised Sign</p>
+                    <p>Authorised Signatory</p>
                 </div>
             </div>
             

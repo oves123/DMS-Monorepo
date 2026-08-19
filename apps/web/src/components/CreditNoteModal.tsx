@@ -138,7 +138,7 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
         const gstPct = parseFloat(item.gst_percent) || 0;
         return sum + (itemTotal * (1 + (gstPct/100)));
       }, 0))
-    : (parseFloat(directAmount) || 0) * 1.05;
+    : (parseFloat(directAmount) || 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,7 +339,7 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
             ) : (
                 <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Taxable Amount (₹) *</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Amount (₹) *</label>
                         <input 
                             type="number" 
                             step="0.01"
@@ -350,7 +350,6 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
                             placeholder="e.g. 500.00"
                             required
                         />
-                        <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>5% GST will be added on top of this amount.</p>
                     </div>
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Reason / Details *</label>
@@ -368,8 +367,10 @@ const CreditNoteModal: React.FC<CreditNoteModalProps> = ({ distributor, onClose,
 
             <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '14px' }}>
-                    Taxable Amount: <strong>₹{totalCalculatedCredit.toFixed(2)}</strong><br/>
-                    Estimated Total (+GST): <strong style={{ color: '#ef4444' }}>₹{Math.round(totalWithGst).toFixed(2)}</strong>
+                    {mode === 'defective' ? 'Taxable Amount' : 'Amount'}: <strong>₹{totalCalculatedCredit.toFixed(2)}</strong><br/>
+                    {mode === 'defective' && (
+                        <>Estimated Total (+GST): <strong style={{ color: '#ef4444' }}>₹{Math.round(totalWithGst).toFixed(2)}</strong></>
+                    )}
                 </div>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '250px' }}>
