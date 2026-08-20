@@ -76,6 +76,7 @@ const AdminCreateOrder = () => {
     setSelectedClient(client);
     if (client) {
       setPricingTier(client.rate_type || 'distributor');
+      setPriceListVersion(client.rate_version === 'old' ? 'old' : 'new');
     }
   };
 

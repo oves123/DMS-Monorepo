@@ -62,8 +62,21 @@ exports.getProducts = async (req, res) => {
         `);
 
         // Determine if we need to apply retailer rate logic
-        const userRateType = req.user ? req.user.rate_type : 'distributor';
+        let userRateType = 'distributor';
+        let userRateVersion = 'new';
+        
+        if (req.user && req.user.user_id) {
+            const userReq = new sql.Request();
+            userReq.input('uid', sql.Int, req.user.user_id);
+            const userRes = await userReq.query(`SELECT rate_type, rate_version FROM Users WHERE user_id = @uid`);
+            if (userRes.recordset.length > 0) {
+                userRateType = userRes.recordset[0].rate_type || 'distributor';
+                userRateVersion = userRes.recordset[0].rate_version || 'new';
+            }
+        }
+        
         const isRetailer = userRateType === 'retailer';
+        const isOld = userRateVersion === 'old';
 
         // Group the flat SQL result into a nested JSON structure
         const productsMap = {};
@@ -80,12 +93,19 @@ exports.getProducts = async (req, res) => {
                 };
             }
             if (row.variant_id) {
+                let finalRate = isRetailer ? row.retailer_rate : row.distributor_rate;
+                if (isOld) {
+                    finalRate = isRetailer 
+                        ? (row.old_retailer_rate != null ? row.old_retailer_rate : finalRate) 
+                        : (row.old_distributor_rate != null ? row.old_distributor_rate : finalRate);
+                }
+
                 productsMap[row.product_id].variants.push({
                     variant_id: row.variant_id,
                     pack_size: row.pack_size,
                     uom: row.uom,
                     pieces_per_box: row.pieces_per_box,
-                    distributor_rate: isRetailer ? row.retailer_rate : row.distributor_rate,
+                    distributor_rate: finalRate,
                     retailer_rate: row.retailer_rate,
                     old_distributor_rate: row.old_distributor_rate,
                     old_retailer_rate: row.old_retailer_rate,

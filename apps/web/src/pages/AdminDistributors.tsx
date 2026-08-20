@@ -31,6 +31,7 @@ const AdminDistributors = () => {
   const [ownerName, setOwnerName] = useState('');
   const [fssaiNumber, setFssaiNumber] = useState('');
   const [rateType, setRateType] = useState('distributor');
+  const [rateVersion, setRateVersion] = useState('new');
   const [panFile, setPanFile] = useState<File | null>(null);
   const [aadharFile, setAadharFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -101,6 +102,7 @@ const AdminDistributors = () => {
       if (ownerName) formData.append('owner_name', ownerName);
       if (fssaiNumber) formData.append('fssai_number', fssaiNumber);
       formData.append('rate_type', rateType);
+      formData.append('rate_version', rateVersion);
       if (panFile) formData.append('panFile', panFile);
       if (aadharFile) formData.append('aadharFile', aadharFile);
       if (photoFile) formData.append('photoFile', photoFile);
@@ -118,6 +120,7 @@ const AdminDistributors = () => {
       setOwnerName('');
       setFssaiNumber('');
       setRateType('distributor');
+      setRateVersion('new');
       setPanFile(null);
       setAadharFile(null);
       setPhotoFile(null);
@@ -157,6 +160,7 @@ const AdminDistributors = () => {
       formData.append('owner_name', editForm.owner_name || '');
       formData.append('fssai_number', editForm.fssai_number || '');
       formData.append('rate_type', editForm.rate_type || 'distributor');
+      formData.append('rate_version', editForm.rate_version || 'new');
       
       if (editForm.password) {
         formData.append('password', editForm.password);
@@ -340,6 +344,13 @@ const AdminDistributors = () => {
               <select value={rateType} onChange={e => setRateType(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
                 <option value="distributor">Distributor Rate (D-Rate)</option>
                 <option value="retailer">Retailer Rate (R-Rate)</option>
+              </select>
+            </div>
+            <div className="input-group">
+              <label>Price Version</label>
+              <select value={rateVersion} onChange={e => setRateVersion(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <option value="new">New Rate (Default)</option>
+                <option value="old">Old Rate</option>
               </select>
             </div>
             <div className="input-group">
@@ -642,6 +653,13 @@ const AdminDistributors = () => {
                     <select value={editForm.rate_type || 'distributor'} onChange={(e) => setEditForm({...editForm, rate_type: e.target.value as 'distributor' | 'retailer'})}>
                       <option value="distributor">Distributor Rate (D-Rate)</option>
                       <option value="retailer">Retailer Rate (R-Rate)</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label>Price Version</label>
+                    <select value={editForm.rate_version || 'new'} onChange={(e) => setEditForm({...editForm, rate_version: e.target.value as 'new' | 'old'})}>
+                      <option value="new">New Rate (Default)</option>
+                      <option value="old">Old Rate</option>
                     </select>
                   </div>
                   <div className="input-group">

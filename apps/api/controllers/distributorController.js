@@ -6,7 +6,7 @@ exports.getDistributors = async (req, res) => {
     try {
         const result = await new sql.Request().query(`
             SELECT user_id, firm_name, gst_number, address, phone_number, created_at,
-                   owner_name, fssai_number, wallet_balance, rate_type, role,
+                   owner_name, fssai_number, wallet_balance, rate_type, rate_version, role,
                    CASE WHEN pan_card IS NOT NULL THEN 1 ELSE 0 END as has_pan,
                    CASE WHEN aadhar_card IS NOT NULL THEN 1 ELSE 0 END as has_aadhar,
                    CASE WHEN photo IS NOT NULL THEN 1 ELSE 0 END as has_photo
@@ -29,7 +29,7 @@ exports.getDistributorById = async (req, res) => {
         request.input('user_id', sql.Int, user_id);
         const result = await request.query(`
             SELECT user_id, firm_name, gst_number, address, phone_number, created_at,
-                   owner_name, fssai_number, wallet_balance, rate_type, role,
+                   owner_name, fssai_number, wallet_balance, rate_type, rate_version, role,
                    CASE WHEN pan_card IS NOT NULL THEN 1 ELSE 0 END as has_pan,
                    CASE WHEN aadhar_card IS NOT NULL THEN 1 ELSE 0 END as has_aadhar,
                    CASE WHEN photo IS NOT NULL THEN 1 ELSE 0 END as has_photo
@@ -98,7 +98,7 @@ exports.getFile = async (req, res) => {
 // POST /api/distributors
     exports.addDistributor = async (req, res) => {
     try {
-        const { firm_name, gst_number, address, phone_number, password, owner_name, fssai_number, rate_type } = req.body;
+        const { firm_name, gst_number, address, phone_number, password, owner_name, fssai_number, rate_type, rate_version } = req.body;
 
         const pan_card_buffer = req.files && req.files.panFile ? req.files.panFile[0].buffer : null;
         const aadhar_card_buffer = req.files && req.files.aadharFile ? req.files.aadharFile[0].buffer : null;
@@ -118,13 +118,14 @@ exports.getFile = async (req, res) => {
         request.input('owner_name', sql.VarChar, owner_name || null);
         request.input('fssai_number', sql.VarChar, fssai_number || null);
         request.input('rate_type', sql.VarChar, rate_type || 'distributor');
+        request.input('rate_version', sql.VarChar, rate_version || 'new');
         request.input('pan_card', sql.VarBinary, pan_card_buffer);
         request.input('aadhar_card', sql.VarBinary, aadhar_card_buffer);
         request.input('photo', sql.VarBinary, photo_buffer);
 
         await request.query(`
-            INSERT INTO Users (role, firm_name, gst_number, address, phone_number, password_hash, owner_name, fssai_number, rate_type, pan_card, aadhar_card, photo)
-            VALUES (@role, @firm_name, @gst_number, @address, @phone_number, @password_hash, @owner_name, @fssai_number, @rate_type, @pan_card, @aadhar_card, @photo)
+            INSERT INTO Users (role, firm_name, gst_number, address, phone_number, password_hash, owner_name, fssai_number, rate_type, rate_version, pan_card, aadhar_card, photo)
+            VALUES (@role, @firm_name, @gst_number, @address, @phone_number, @password_hash, @owner_name, @fssai_number, @rate_type, @rate_version, @pan_card, @aadhar_card, @photo)
         `);
 
         res.status(201).json({ message: 'Distributor created successfully' });
@@ -214,7 +215,7 @@ exports.bulkUploadDistributors = async (req, res) => {
 exports.updateDistributor = async (req, res) => {
     try {
         const user_id = req.params.id;
-        const { firm_name, gst_number, address, phone_number, owner_name, fssai_number, password, rate_type, deletePan, deleteAadhar, deletePhoto } = req.body;
+        const { firm_name, gst_number, address, phone_number, owner_name, fssai_number, password, rate_type, rate_version, deletePan, deleteAadhar, deletePhoto } = req.body;
 
         const request = new sql.Request();
         request.input('user_id', sql.Int, user_id);
@@ -225,8 +226,9 @@ exports.updateDistributor = async (req, res) => {
         request.input('owner_name', sql.VarChar, owner_name || null);
         request.input('fssai_number', sql.VarChar, fssai_number || null);
         request.input('rate_type', sql.VarChar, rate_type || 'distributor');
+        request.input('rate_version', sql.VarChar, rate_version || 'new');
 
-        let updateFields = `firm_name = @firm_name, gst_number = @gst_number, address = @address, phone_number = @phone_number, owner_name = @owner_name, fssai_number = @fssai_number, rate_type = @rate_type`;
+        let updateFields = `firm_name = @firm_name, gst_number = @gst_number, address = @address, phone_number = @phone_number, owner_name = @owner_name, fssai_number = @fssai_number, rate_type = @rate_type, rate_version = @rate_version`;
 
         if (password) {
             const salt = await bcrypt.genSalt(10);
