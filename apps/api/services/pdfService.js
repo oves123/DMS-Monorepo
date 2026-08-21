@@ -496,9 +496,13 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
             <table class="excel-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center; width: 10%;">Sr. no</th>
-                        <th style="text-align: center; width: 70%;">Particulars</th>
-                        <th style="text-align: center; width: 20%;">Amount</th>
+                        <th style="text-align: center; width: 5%;">Sr. no</th>
+                        <th style="text-align: left; width: 30%;">Product</th>
+                        <th style="text-align: center; width: 10%;">Pack Size</th>
+                        <th style="text-align: center; width: 20%;">Reason</th>
+                        <th style="text-align: center; width: 10%;">Defective Box</th>
+                        <th style="text-align: center; width: 10%;">Defective Pcs</th>
+                        <th style="text-align: right; width: 15%;">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -511,15 +515,19 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
 
                         return `
                         <tr>
-                            <td style="text-align: center; vertical-align: top; padding: 6px; height: 25px;">${idx + 1}</td>
-                            <td style="font-weight: bold; vertical-align: top; padding: 6px;">${item.product_name}${item.pack_size && item.pack_size !== '-' ? ` - ${item.pack_size}` : ''}</td>
+                            <td style="text-align: center; vertical-align: top; padding: 6px;">${idx + 1}</td>
+                            <td style="font-weight: bold; vertical-align: top; padding: 6px;">${item.product_name}</td>
+                            <td style="text-align: center; vertical-align: top; padding: 6px;">${item.pack_size && item.pack_size !== '-' ? item.pack_size : '-'}</td>
+                            <td style="text-align: center; vertical-align: top; padding: 6px;">${item.reason || '-'}</td>
+                            <td style="text-align: center; vertical-align: top; padding: 6px;">${item.quantity || 0}</td>
+                            <td style="text-align: center; vertical-align: top; padding: 6px;">${item.pieces_qty || 0}</td>
                             <td style="text-align: right; font-weight: bold; vertical-align: top; padding: 6px;">${Math.round(rowTotal).toFixed(2)}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="2" style="text-align: right; font-weight: bold; padding: 6px;">Total</td>
+                        <td colspan="6" style="text-align: right; font-weight: bold; padding: 6px;">Total</td>
                         <td style="text-align: right; font-weight: bold; padding: 6px;">${Math.round(credit_note.amount).toFixed(2)}</td>
                     </tr>
                 </tfoot>
