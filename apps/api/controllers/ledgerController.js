@@ -34,6 +34,7 @@ exports.getInvoices = async (req, res) => {
             ledgerMap[row.distributor_id].total_billed += row.grand_total;
             ledgerMap[row.distributor_id].total_paid += (row.paid_amount || 0);
             ledgerMap[row.distributor_id].total_pending += (row.grand_total - (row.paid_amount || 0));
+            ledgerMap[row.distributor_id].invoices.push(row);
 
         });
 
