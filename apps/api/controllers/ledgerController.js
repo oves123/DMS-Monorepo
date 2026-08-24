@@ -35,10 +35,16 @@ exports.getInvoices = async (req, res) => {
             ledgerMap[row.distributor_id].total_paid += (row.paid_amount || 0);
             ledgerMap[row.distributor_id].total_pending += (row.grand_total - (row.paid_amount || 0));
 
-            ledgerMap[row.distributor_id].invoices.push(row);
         });
 
-        res.json(Object.values(ledgerMap));
+        const ledgerArray = Object.values(ledgerMap);
+        ledgerArray.sort((a, b) => {
+            const dateA = a.invoices.length > 0 ? new Date(a.invoices[0].created_at) : new Date(0);
+            const dateB = b.invoices.length > 0 ? new Date(b.invoices[0].created_at) : new Date(0);
+            return dateB - dateA;
+        });
+
+        res.json(ledgerArray);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: 'Server Error' });

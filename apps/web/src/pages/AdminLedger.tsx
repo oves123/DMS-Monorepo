@@ -356,6 +356,20 @@ const AdminLedger = () => {
                               >
                                 {inv.invoice_number}
                               </button>
+                              {(new Date().getTime() - new Date(inv.created_at).getTime()) < 24 * 60 * 60 * 1000 && (
+                                <span style={{
+                                  background: '#ef4444',
+                                  color: 'white',
+                                  fontSize: '10px',
+                                  padding: '2px 6px',
+                                  borderRadius: '10px',
+                                  marginLeft: '8px',
+                                  fontWeight: 'bold',
+                                  animation: 'pulse 2s infinite'
+                                }}>
+                                  NEW
+                                </span>
+                              )}
                               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                                 {new Date(inv.created_at).toLocaleDateString()}
                               </div>

@@ -452,11 +452,11 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
 
           @page {
             size: A4 portrait;
-            margin: 10mm; 
+            margin: 0; 
           }
           
           .invoice-container {
-            padding: 0 !important;
+            padding: 10mm !important; /* Move margin inside the container so browser headers are hidden */
           }
           
           .excel-table td, .excel-table th {

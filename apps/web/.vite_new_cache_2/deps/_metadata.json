@@ -1,73 +1,107 @@
 {
-  "hash": "863555f3",
+  "hash": "199e409e",
   "configHash": "f8e58a13",
-  "lockfileHash": "dc9da8db",
-  "browserHash": "0e955c22",
+  "lockfileHash": "81f8aa01",
+  "browserHash": "96b7f358",
   "optimized": {
     "axios": {
       "src": "../../../../node_modules/axios/index.js",
       "file": "axios.js",
-      "fileHash": "7826a935",
+      "fileHash": "ac2a1ba6",
+      "needsInterop": false
+    },
+    "jspdf-autotable": {
+      "src": "../../../../node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.mjs",
+      "file": "jspdf-autotable.js",
+      "fileHash": "6cd42100",
+      "needsInterop": false
+    },
+    "jspdf": {
+      "src": "../../../../node_modules/jspdf/dist/jspdf.es.min.js",
+      "file": "jspdf.js",
+      "fileHash": "63ba866a",
       "needsInterop": false
     },
     "lucide-react": {
       "src": "../../../../node_modules/lucide-react/dist/esm/lucide-react.mjs",
       "file": "lucide-react.js",
-      "fileHash": "aa4989b6",
+      "fileHash": "b335219e",
       "needsInterop": false
     },
     "papaparse": {
       "src": "../../../../node_modules/papaparse/papaparse.min.js",
       "file": "papaparse.js",
-      "fileHash": "e9ac3731",
+      "fileHash": "a3893691",
       "needsInterop": true
     },
     "react-dom": {
       "src": "../../../../node_modules/react-dom/index.js",
       "file": "react-dom.js",
-      "fileHash": "92089993",
+      "fileHash": "5e1450a7",
       "needsInterop": true
     },
     "react-dom/client": {
       "src": "../../../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "518c3837",
+      "fileHash": "9d645ff9",
       "needsInterop": true
     },
     "react-router-dom": {
       "src": "../../../../node_modules/react-router-dom/dist/index.mjs",
       "file": "react-router-dom.js",
-      "fileHash": "aabf8167",
+      "fileHash": "40c7c6ea",
       "needsInterop": false
     },
     "react": {
       "src": "../../../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "cba49621",
+      "fileHash": "92906258",
       "needsInterop": true
     },
     "react/jsx-dev-runtime": {
       "src": "../../../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "04edc14f",
+      "fileHash": "c603a0f0",
       "needsInterop": true
     },
     "react/jsx-runtime": {
       "src": "../../../../node_modules/react/jsx-runtime.js",
       "file": "react_jsx-runtime.js",
-      "fileHash": "93488619",
+      "fileHash": "f134a3c1",
       "needsInterop": true
     },
     "recharts": {
       "src": "../../../../node_modules/recharts/es6/index.js",
       "file": "recharts.js",
-      "fileHash": "afa87701",
+      "fileHash": "0aabbd71",
+      "needsInterop": false
+    },
+    "xlsx": {
+      "src": "../../../../node_modules/xlsx/xlsx.mjs",
+      "file": "xlsx.js",
+      "fileHash": "dee41233",
       "needsInterop": false
     }
   },
   "chunks": {
+    "html2canvas-Do2eRrdJ": {
+      "file": "html2canvas-Do2eRrdJ.js",
+      "isDynamicEntry": true
+    },
+    "index.es-0KZWlno5": {
+      "file": "index.es-0KZWlno5.js",
+      "isDynamicEntry": true
+    },
+    "purify.es-BphUntkz": {
+      "file": "purify.es-BphUntkz.js",
+      "isDynamicEntry": true
+    },
     "rolldown-runtime-B-1-B7_t": {
       "file": "rolldown-runtime-B-1-B7_t.js",
+      "isDynamicEntry": false
+    },
+    "typeof-CPIP5wxm": {
+      "file": "typeof-CPIP5wxm.js",
       "isDynamicEntry": false
     }
   }

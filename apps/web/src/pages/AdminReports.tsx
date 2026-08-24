@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../lib/api';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
-  LineChart, Line 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
-import { AlertTriangle, TrendingUp, Package, Users, ChevronDown, Search } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Package, Users, ChevronDown, Search, FileText, FileSpreadsheet, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const AdminReports = () => {
   const [salesData, setSalesData] = useState([]);
@@ -16,6 +18,18 @@ const AdminReports = () => {
   const [loading, setLoading] = useState(true);
   const [distributorsList, setDistributorsList] = useState<any[]>([]);
   const [selectedDistributor, setSelectedDistributor] = useState('all');
+
+  // Inventory Pagination State
+  const [invPage, setInvPage] = useState(1);
+  const invRowsPerPage = 10;
+
+  // Detailed Transaction Report State
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transStartDate, setTransStartDate] = useState('');
+  const [transEndDate, setTransEndDate] = useState('');
+  const [transMonth, setTransMonth] = useState('');
+  const [transYear, setTransYear] = useState('');
+  const [transLoading, setTransLoading] = useState(false);
 
   // Combobox State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -102,6 +116,126 @@ const AdminReports = () => {
       setLoading(false);
     }
   };
+
+  const fetchTransactions = async () => {
+    try {
+      setTransLoading(true);
+      let query = '';
+      if (transMonth && transYear) {
+        query = `?month=${transMonth}&year=${transYear}`;
+      } else if (transStartDate && transEndDate) {
+        query = `?startDate=${transStartDate}&endDate=${transEndDate}`;
+      }
+      
+      const res = await api.get(`/api/reports/admin/transactions${query}`);
+      setTransactions(res.data);
+    } catch (err) {
+      console.error('Failed to fetch transactions', err);
+    } finally {
+      setTransLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [transStartDate, transEndDate, transMonth, transYear]);
+
+  // Download Excel
+  const handleDownloadExcel = () => {
+    if (transactions.length === 0) return alert('No data to download.');
+    
+    // Compute totals
+    const totalTaxable = transactions.reduce((sum, t) => sum + t.taxable_amount, 0);
+    const totalGst = transactions.reduce((sum, t) => sum + t.gst_amount, 0);
+    const totalAmount = transactions.reduce((sum, t) => sum + t.total_amount, 0);
+
+    const data = transactions.map((t, i) => ({
+      'SR': i + 1,
+      'DATE': new Date(t.date).toLocaleDateString('en-GB'),
+      'BILL NO': t.invoice_number,
+      'FIRM NAME': t.firm_name,
+      'TOWN': t.town,
+      'TAXABLE AMOUNT': t.taxable_amount,
+      'GST AMOUNT': t.gst_amount,
+      'TOTAL AMOUNT': t.total_amount
+    }));
+    
+    data.push({
+      'SR': '' as any, 'DATE': '', 'BILL NO': '', 'FIRM NAME': '', 'TOWN': 'GRAND TOTAL',
+      'TAXABLE AMOUNT': totalTaxable,
+      'GST AMOUNT': totalGst,
+      'TOTAL AMOUNT': totalAmount
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Transactions");
+    XLSX.writeFile(workbook, "Transaction_Report.xlsx");
+  };
+
+  // Download PDF
+  const handleDownloadPDF = () => {
+    if (transactions.length === 0) return alert('No data to download.');
+    
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Jollyz - Transaction Report", 14, 20);
+    
+    let subtitle = "All Transactions";
+    if (transMonth && transYear) subtitle = `For ${transMonth}/${transYear}`;
+    else if (transStartDate && transEndDate) subtitle = `From ${transStartDate} to ${transEndDate}`;
+    
+    doc.setFontSize(12);
+    doc.text(subtitle, 14, 28);
+
+    const totalTaxable = transactions.reduce((sum, t) => sum + t.taxable_amount, 0);
+    const totalGst = transactions.reduce((sum, t) => sum + t.gst_amount, 0);
+    const totalAmount = transactions.reduce((sum, t) => sum + t.total_amount, 0);
+
+    const tableColumn = ["SR", "Date", "Bill No", "Firm Name", "Town", "Taxable", "GST", "Total"];
+    const tableRows: any[] = [];
+
+    transactions.forEach((t, i) => {
+      tableRows.push([
+        i + 1,
+        new Date(t.date).toLocaleDateString('en-GB'),
+        t.invoice_number,
+        t.firm_name,
+        t.town,
+        `Rs ${t.taxable_amount.toFixed(2)}`,
+        `Rs ${t.gst_amount.toFixed(2)}`,
+        `Rs ${t.total_amount.toFixed(2)}`
+      ]);
+    });
+    
+    // Add Grand Total row
+    tableRows.push([
+      '', '', '', '', 'GRAND TOTAL',
+      `Rs ${totalTaxable.toFixed(2)}`,
+      `Rs ${totalGst.toFixed(2)}`,
+      `Rs ${totalAmount.toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [79, 70, 229] },
+      didParseCell: function (data) {
+        if (data.row.index === tableRows.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [241, 245, 249] as any;
+        }
+      }
+    });
+    
+    doc.save(`Transaction_Report.pdf`);
+  };
+
+  const paginatedInventoryAlerts = inventoryAlerts.slice((invPage - 1) * invRowsPerPage, invPage * invRowsPerPage);
+  const totalInvPages = Math.ceil(inventoryAlerts.length / invRowsPerPage);
 
   if (loading) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Loading reports...</div>;
@@ -222,16 +356,16 @@ const AdminReports = () => {
           <div style={{ height: '300px', width: '100%' }}>
             {salesData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={salesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={salesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="date" tick={{fill: '#64748b', fontSize: 12}} />
                   <YAxis yAxisId="left" tick={{fill: '#64748b', fontSize: 12}} />
                   <YAxis yAxisId="right" orientation="right" tick={{fill: '#64748b', fontSize: 12}} />
-                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                  <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                   <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="total_revenue" stroke="var(--primary)" strokeWidth={3} name="Revenue (₹)" activeDot={{ r: 8 }} />
-                  <Line yAxisId="right" type="monotone" dataKey="total_orders" stroke="#10b981" strokeWidth={3} name="Total Orders" />
-                </LineChart>
+                  <Bar yAxisId="left" dataKey="total_revenue" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Revenue (₹)" />
+                  <Bar yAxisId="right" dataKey="total_orders" fill="#10b981" radius={[4, 4, 0, 0]} name="Total Orders" />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div style={{ textAlign: 'center', color: '#9ca3af', paddingTop: '100px' }}>No sales data available.</div>
@@ -303,8 +437,8 @@ const AdminReports = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {inventoryAlerts.length > 0 ? (
-                    inventoryAlerts.map((item, index) => (
+                  {paginatedInventoryAlerts.length > 0 ? (
+                    paginatedInventoryAlerts.map((item, index) => (
                       <tr key={index}>
                         <td style={{ fontWeight: 500 }}>{item.product_name}</td>
                         <td>{item.pack_size}</td>
@@ -332,9 +466,156 @@ const AdminReports = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalInvPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '0 8px' }}>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>
+                  Showing {(invPage - 1) * invRowsPerPage + 1} to {Math.min(invPage * invRowsPerPage, inventoryAlerts.length)} of {inventoryAlerts.length} entries
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    disabled={invPage === 1} 
+                    onClick={() => setInvPage(prev => Math.max(prev - 1, 1))}
+                    style={{ padding: '6px 12px', fontSize: '13px', background: invPage === 1 ? '#f1f5f9' : '#fff', color: invPage === 1 ? '#94a3b8' : '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: invPage === 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Previous
+                  </button>
+                  <button 
+                    disabled={invPage === totalInvPages} 
+                    onClick={() => setInvPage(prev => Math.min(prev + 1, totalInvPages))}
+                    style={{ padding: '6px 12px', fontSize: '13px', background: invPage === totalInvPages ? '#f1f5f9' : '#fff', color: invPage === totalInvPages ? '#94a3b8' : '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: invPage === totalInvPages ? 'not-allowed' : 'pointer' }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
             </div>
           </div>
         )}
+
+        {/* Detailed Transaction Report */}
+        <div className="data-card" style={{ padding: '24px', gridColumn: '1 / -1', marginTop: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <FileText color="var(--primary)" /> Detailed Transaction Report
+            </h3>
+            
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#f8fafc', padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Month:</span>
+                <select 
+                  value={transMonth} 
+                  onChange={e => setTransMonth(e.target.value)}
+                  style={{ padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontSize: '13px' }}
+                >
+                  <option value="">Select</option>
+                  {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('default', { month: 'short' })}</option>)}
+                </select>
+                <select 
+                  value={transYear} 
+                  onChange={e => setTransYear(e.target.value)}
+                  style={{ padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontSize: '13px' }}
+                >
+                  <option value="">Year</option>
+                  {[2023, 2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+
+              <span style={{ fontSize: '13px', color: '#94a3b8' }}>OR</span>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#f8fafc', padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <input 
+                  type="date" 
+                  value={transStartDate} 
+                  onChange={e => setTransStartDate(e.target.value)} 
+                  style={{ padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontSize: '13px' }} 
+                />
+                <span style={{ fontSize: '13px', color: '#64748b' }}>to</span>
+                <input 
+                  type="date" 
+                  value={transEndDate} 
+                  onChange={e => setTransEndDate(e.target.value)} 
+                  style={{ padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontSize: '13px' }} 
+                />
+              </div>
+
+              <button 
+                onClick={() => { setTransStartDate(''); setTransEndDate(''); setTransMonth(''); setTransYear(''); }}
+                style={{ padding: '6px 12px', fontSize: '13px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}
+              >
+                Clear
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+                <button 
+                  onClick={handleDownloadExcel}
+                  style={{ padding: '8px 16px', fontSize: '13px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileSpreadsheet size={16} /> Excel
+                </button>
+                <button 
+                  onClick={handleDownloadPDF}
+                  style={{ padding: '8px 16px', fontSize: '13px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={16} /> PDF
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
+            {transLoading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading transactions...</div>
+            ) : transactions.length > 0 ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>SR</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>DATE</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>BILL NO</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>FIRM NAME</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>TOWN</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>TAXABLE AMOUNT</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>GST AMOUNT</th>
+                    <th style={{ padding: '12px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>TOTAL AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((t, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#64748b' }}>{i + 1}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px' }}>{new Date(t.date).toLocaleDateString('en-GB')}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 500, color: 'var(--primary)' }}>{t.invoice_number}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 500 }}>{t.firm_name}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', color: '#64748b' }}>{t.town || '-'}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px' }}>₹{t.taxable_amount.toFixed(2)}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px' }}>₹{t.gst_amount.toFixed(2)}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#059669' }}>₹{t.total_amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#f1f5f9', position: 'sticky', bottom: 0, zIndex: 10, borderTop: '2px solid #cbd5e1' }}>
+                    <td colSpan={5} style={{ padding: '12px', fontWeight: 'bold', textAlign: 'right', fontSize: '14px' }}>GRAND TOTAL:</td>
+                    <td style={{ padding: '12px', fontWeight: 'bold', fontSize: '14px' }}>
+                      ₹{transactions.reduce((sum, t) => sum + t.taxable_amount, 0).toFixed(2)}
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: 'bold', fontSize: '14px' }}>
+                      ₹{transactions.reduce((sum, t) => sum + t.gst_amount, 0).toFixed(2)}
+                    </td>
+                    <td style={{ padding: '12px', fontWeight: 'bold', fontSize: '14px', color: '#059669' }}>
+                      ₹{transactions.reduce((sum, t) => sum + t.total_amount, 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                No transactions found for the selected period.
+              </div>
+            )}
+          </div>
+        </div>
 
       </div>
     </div>
