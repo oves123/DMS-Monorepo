@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import api from '../lib/api';
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, EyeOff, PlusCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAutoSave, useNavigationWarning } from '../hooks/useAutoSave';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -17,15 +18,18 @@ const AdminOrders = () => {
   const itemsPerPage = 5;
   
   // State for executing an order
-  const [executingOrderId, setExecutingOrderId] = useState<number | null>(null);
+  const [executingOrderId, setExecutingOrderId, clearExecutingOrderId] = useAutoSave<number | null>('admin_orders_exec_id', null);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
-  const [executionQuantities, setExecutionQuantities] = useState<Record<number, number>>({});
+  const [executionQuantities, setExecutionQuantities, clearExecutionQuantities] = useAutoSave<Record<number, number>>('admin_orders_exec_qtys', {});
   
   // New States for Discounts and Wallet
-  const [extraDiscount, setExtraDiscount] = useState<number>(0);
-  const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
-  const [discountReason, setDiscountReason] = useState<string>('');
-  const [creditApplied, setCreditApplied] = useState<number>(0);
+  const [extraDiscount, setExtraDiscount, clearExtraDiscount] = useAutoSave<number>('admin_orders_extra_discount', 0);
+  const [discountType, setDiscountType, clearDiscountType] = useAutoSave<'amount' | 'percent'>('admin_orders_discount_type', 'amount');
+  const [discountReason, setDiscountReason, clearDiscountReason] = useAutoSave<string>('admin_orders_discount_reason', '');
+  const [creditApplied, setCreditApplied, clearCreditApplied] = useAutoSave<number>('admin_orders_credit_applied', 0);
+
+  // Prevent navigation when processing
+  useNavigationWarning(executingOrderId !== null);
   
   // Prevent double submissions
   const [isProcessing, setIsProcessing] = useState(false);
@@ -72,11 +76,12 @@ const AdminOrders = () => {
         credit_applied: creditApplied
       });
 
-      setExecutingOrderId(null);
-      setExtraDiscount(0);
-      setDiscountType('amount');
-      setDiscountReason('');
-      setCreditApplied(0);
+      clearExecutingOrderId();
+      clearExtraDiscount();
+      clearDiscountType();
+      clearDiscountReason();
+      clearCreditApplied();
+      clearExecutionQuantities();
       fetchOrders();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to execute order');
@@ -461,10 +466,11 @@ const AdminOrders = () => {
                       {executingOrderId === order.order_id ? (
                         <>
                           <button className="secondary-btn" onClick={() => {
-                            setExecutingOrderId(null);
-                            setExtraDiscount(0);
-                            setDiscountReason('');
-                            setCreditApplied(0);
+                            clearExecutingOrderId();
+                            clearExtraDiscount();
+                            clearDiscountReason();
+                            clearCreditApplied();
+                            clearExecutionQuantities();
                           }} style={{ marginRight: '10px' }} disabled={isProcessing}>Cancel</button>
                           <button className="secondary-btn" onClick={() => handleDownloadDraft(order, discountType === 'percent' ? totalAmount * (extraDiscount / 100) : extraDiscount)} style={{ marginRight: '10px' }} disabled={isProcessing}>
                             Download Draft Bill (PDF)

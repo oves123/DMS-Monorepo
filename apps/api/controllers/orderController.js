@@ -113,7 +113,6 @@ exports.executeOrder = async (req, res) => {
             `);
 
             // Calculate subtotal and individual GST for this item
-            // We need price and GST for this variant
             const reqPrice = new sql.Request(transaction);
             reqPrice.input('item_id', sql.Int, item.order_item_id);
             const priceRes = await reqPrice.query(`
@@ -124,18 +123,20 @@ exports.executeOrder = async (req, res) => {
                 WHERE oi.order_item_id = @item_id
             `);
             
-            if (priceRes.recordset.length > 0) {
-                const price = priceRes.recordset[0].price_at_order;
-                const gstPct = parseFloat(priceRes.recordset[0].gst_percent) || 0;
-                
-                const itemSubtotal = price * item.executed_qty;
-                subtotal += itemSubtotal;
-                
-                // Split GST into CGST and SGST (half each)
-                const halfGst = gstPct / 2;
-                cgst += itemSubtotal * (halfGst / 100);
-                sgst += itemSubtotal * (halfGst / 100);
+            if (priceRes.recordset.length === 0) {
+                throw new Error(`Order item ID ${item.order_item_id} not found or was modified in another tab. Please refresh the page and try again.`);
             }
+            
+            const price = priceRes.recordset[0].price_at_order;
+            const gstPct = parseFloat(priceRes.recordset[0].gst_percent) || 0;
+            
+            const itemSubtotal = price * item.executed_qty;
+            subtotal += itemSubtotal;
+            
+            // Split GST into CGST and SGST (half each)
+            const halfGst = gstPct / 2;
+            cgst += itemSubtotal * (halfGst / 100);
+            sgst += itemSubtotal * (halfGst / 100);
         }
 
         // 3. Update Order Status
