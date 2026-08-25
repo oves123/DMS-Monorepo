@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import api from '../lib/api';
 import InvoiceModal from '../components/InvoiceModal';
 import CreditNoteModal from '../components/CreditNoteModal';
-import { Search, Filter, Trash2, CreditCard, ChevronRight, ChevronDown, Download, PlusCircle } from 'lucide-react';
+import { Search, Filter, CreditCard, ChevronRight, ChevronDown, Download, PlusCircle } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { formatIndianNumber, formatCurrencyDetailed } from '../lib/utils';
 
@@ -46,16 +46,6 @@ const AdminLedger = () => {
       setError('Failed to fetch ledger');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (invoice_number: string) => {
-    if (!window.confirm('Are you sure you want to delete this invoice? This will also delete associated payments.')) return;
-    try {
-      await api.delete(`/api/ledger/invoice/${invoice_number}`);
-      fetchLedger();
-    } catch (err) {
-      showToast('Failed to delete invoice', 'error');
     }
   };
 
@@ -386,15 +376,6 @@ const AdminLedger = () => {
                             <td style={{ padding: '10px 12px', fontWeight: 500 }}>₹{inv.grand_total}</td>
                             <td style={{ padding: '10px 12px', color: '#059669' }}>₹{inv.paid_amount || 0}</td>
                             <td style={{ padding: '10px 12px', color: '#dc2626' }}>₹{(inv.grand_total - (inv.paid_amount || 0)).toFixed(2)}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                              <button 
-                                onClick={() => handleDelete(inv.invoice_number)}
-                                style={{ background: '#fef2f2', border: 'none', padding: '6px', color: '#ef4444', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px' }}
-                                title="Delete Invoice"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </td>
                           </tr>
                         ))}
                       </Fragment>
