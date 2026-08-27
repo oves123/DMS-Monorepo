@@ -13,8 +13,13 @@ const AdminReports = () => {
   const [productData, setProductData] = useState([]);
   const [distributorData, setDistributorData] = useState([]);
   const [inventoryAlerts, setInventoryAlerts] = useState<any[]>([]);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const defaultStart = firstDay.toISOString().split('T')[0];
+  const defaultEnd = today.toISOString().split('T')[0];
+
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
   const [loading, setLoading] = useState(true);
   const [distributorsList, setDistributorsList] = useState<any[]>([]);
   const [selectedDistributor, setSelectedDistributor] = useState('all');
@@ -346,12 +351,39 @@ const AdminReports = () => {
         </div>
       </div>
 
+      {/* Primary Sales Summary Card */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+        <div className="data-card" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px', borderRadius: '12px', background: '#fff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)',
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(14, 165, 233, 0.2)'
+          }}>
+            <TrendingUp size={32} />
+          </div>
+          <div>
+            <p style={{ margin: 0, color: '#64748b', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              PRIMARY SALES
+            </p>
+            <h2 style={{ margin: '4px 0 0 0', color: '#1e293b', fontSize: '32px', fontWeight: 600 }}>
+              {salesData.reduce((acc: number, curr: any) => acc + (Number(curr.total_revenue) || 0), 0).toFixed(2)}
+            </h2>
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px' }}>
         
         {/* Sales & Revenue Chart */}
         <div className="data-card" style={{ padding: '24px', gridColumn: '1 / -1' }}>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-            <TrendingUp color="var(--primary)" /> Sales Trend (Revenue)
+            <TrendingUp color="var(--primary)" /> Sales Trend (Total Orders)
           </h3>
           <div style={{ height: '300px', width: '100%' }}>
             {salesData.length > 0 ? (
@@ -359,12 +391,10 @@ const AdminReports = () => {
                 <BarChart data={salesData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="date" tick={{fill: '#64748b', fontSize: 12}} />
-                  <YAxis yAxisId="left" tick={{fill: '#64748b', fontSize: 12}} />
-                  <YAxis yAxisId="right" orientation="right" tick={{fill: '#64748b', fontSize: 12}} />
+                  <YAxis tick={{fill: '#64748b', fontSize: 12}} />
                   <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                   <Legend />
-                  <Bar yAxisId="left" dataKey="total_revenue" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Revenue (₹)" />
-                  <Bar yAxisId="right" dataKey="total_orders" fill="#10b981" radius={[4, 4, 0, 0]} name="Total Orders" />
+                  <Bar dataKey="total_orders" fill="#10b981" radius={[4, 4, 0, 0]} name="Total Orders" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -378,7 +408,7 @@ const AdminReports = () => {
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
             <Package color="#10b981" /> Top Selling Products
           </h3>
-          <div style={{ height: '300px', width: '100%' }}>
+          <div style={{ height: '450px', width: '100%' }}>
             {productData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={productData} layout="vertical" margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
@@ -404,9 +434,9 @@ const AdminReports = () => {
             <div style={{ height: '300px', width: '100%' }}>
               {distributorData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={distributorData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <BarChart data={distributorData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="distributor_name" tick={{fill: '#475569', fontSize: 12}} />
+                    <XAxis dataKey="distributor_name" tick={{fill: '#475569', fontSize: 11}} angle={-45} textAnchor="end" />
                     <YAxis hide />
                     <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                     <Bar dataKey="total_spent" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Revenue Generated (₹)" />

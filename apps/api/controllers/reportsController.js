@@ -46,7 +46,7 @@ exports.getAdminTopProducts = async (req, res) => {
         if (endDate) request.input('endDate', sql.Date, endDate);
 
         const result = await request.query(`
-            SELECT TOP 5 
+            SELECT TOP 15 
                 p.name as product_name, 
                 ISNULL(SUM(oi.executed_qty), 0) as total_sold
             FROM OrderItems oi
@@ -79,7 +79,7 @@ exports.getAdminTopDistributors = async (req, res) => {
         if (endDate) request.input('endDate', sql.Date, endDate);
 
         const result = await request.query(`
-            SELECT TOP 5 
+            SELECT TOP 10 
                 u.firm_name as distributor_name, 
                 COUNT(DISTINCT o.order_id) as total_orders, 
                 ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as total_spent
