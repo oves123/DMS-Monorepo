@@ -15,14 +15,14 @@ exports.getAdminSales = async (req, res) => {
 
         const result = await request.query(`
             SELECT 
-                CONVERT(VARCHAR(10), order_date, 120) as date, 
+                CONVERT(VARCHAR(10), o.order_date, 120) as date, 
                 COUNT(DISTINCT o.order_id) as total_orders, 
-                ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as total_revenue
+                ISNULL(SUM(inv.grand_total), 0) as total_revenue
             FROM Orders o
-            JOIN OrderItems oi ON o.order_id = oi.order_id
+            LEFT JOIN Invoices inv ON o.order_id = inv.order_id
             WHERE o.status = 'EXECUTED' 
             ${dateFilter.replace('WHERE', 'AND')}
-            GROUP BY CONVERT(VARCHAR(10), order_date, 120)
+            GROUP BY CONVERT(VARCHAR(10), o.order_date, 120)
             ORDER BY date ASC
         `);
         res.json(result.recordset);
@@ -82,10 +82,10 @@ exports.getAdminTopDistributors = async (req, res) => {
             SELECT TOP 10 
                 u.firm_name as distributor_name, 
                 COUNT(DISTINCT o.order_id) as total_orders, 
-                ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as total_spent
+                ISNULL(SUM(inv.grand_total), 0) as total_spent
             FROM Orders o
             JOIN Users u ON o.distributor_id = u.user_id
-            JOIN OrderItems oi ON o.order_id = oi.order_id
+            LEFT JOIN Invoices inv ON o.order_id = inv.order_id
             WHERE o.status = 'EXECUTED'
             ${dateFilter.replace('WHERE', 'AND')}
             GROUP BY u.firm_name
@@ -133,13 +133,13 @@ exports.getDistributorPurchases = async (req, res) => {
 
         const result = await request.query(`
                 SELECT 
-                    CONVERT(VARCHAR(10), order_date, 120) as date, 
+                    CONVERT(VARCHAR(10), o.order_date, 120) as date, 
                     COUNT(DISTINCT o.order_id) as total_orders, 
-                    ISNULL(SUM(oi.price_at_order * oi.executed_qty), 0) as amount_spent
+                    ISNULL(SUM(inv.grand_total), 0) as amount_spent
                 FROM Orders o
-                JOIN OrderItems oi ON o.order_id = oi.order_id
+                LEFT JOIN Invoices inv ON o.order_id = inv.order_id
                 WHERE o.distributor_id = @user_id AND o.status = 'EXECUTED' ${dateFilter}
-                GROUP BY CONVERT(VARCHAR(10), order_date, 120)
+                GROUP BY CONVERT(VARCHAR(10), o.order_date, 120)
                 ORDER BY date ASC
             `);
         res.json(result.recordset);
