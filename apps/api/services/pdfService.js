@@ -26,6 +26,18 @@ const extractPriceOrWeight = (packSize) => {
   return null;
 };
 
+const formatPackSize = (packSize) => {
+  if (!packSize) return '';
+  const match = String(packSize).match(/^(\d+)Rs/i);
+  if (match) {
+    const retailPrice = parseInt(match[1], 10);
+    if (retailPrice <= 20) {
+      return String(packSize).replace(/\s*\d+\s*(?:g|gm|kg)\s*$/i, '');
+    }
+  }
+  return packSize;
+};
+
 const getPackSizeWeight = (packSize) => {
   if (!packSize) return 999999;
   const str = String(packSize).toLowerCase();
