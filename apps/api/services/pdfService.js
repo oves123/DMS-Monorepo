@@ -3,10 +3,42 @@
 const CATEGORY_ORDER = {
   'chips': 1,
   'popcorn': 2,
-  'fryums': 3,
-  'namkeen': 4,
-  'kurkure': 5,
-  'choco bites': 6
+  'chocobite': 3,
+  'choco bites': 3,
+  'extended': 4,
+  'fryms': 5,
+  'fryums': 5,
+  'namkeen': 6
+};
+
+const extractPriceOrWeight = (packSize) => {
+  if (!packSize) return null;
+  const str = String(packSize).trim();
+  const rsMatch = str.match(/(\d+)Rs/i);
+  if (rsMatch) return `${rsMatch[1]}Rs`;
+  
+  const weightMatch = str.match(/(\d+(?:\.\d+)?)\s*(g|gm|kg|ml|l)/i);
+  if (weightMatch) {
+    let unit = weightMatch[2].toLowerCase();
+    if (unit === 'gm') unit = 'g';
+    return `${weightMatch[1]}${unit}`;
+  }
+  return null;
+};
+
+const getPackSizeWeight = (packSize) => {
+  if (!packSize) return 999999;
+  const str = String(packSize).toLowerCase();
+  const numMatch = str.match(/(\d+(\.\d+)?)/);
+  const num = numMatch ? parseFloat(numMatch[1]) : 0;
+  
+  if (str.includes('rs')) return num;
+  if (str.includes('kg')) return 10000 + (num * 1000);
+  if (str.includes('gm') || str.includes('g')) return 10000 + num;
+  if (str.includes('l') && !str.includes('ml')) return 20000 + (num * 1000);
+  if (str.includes('ml')) return 20000 + num;
+  
+  return 999000 + num;
 };
 
 const sortItemsByCategory = (items) => {
@@ -16,21 +48,16 @@ const sortItemsByCategory = (items) => {
     const catB = b.category_name ? String(b.category_name).toLowerCase().trim() : '';
     const rankA = CATEGORY_ORDER[catA] || 99;
     const rankB = CATEGORY_ORDER[catB] || 99;
-    return rankA - rankB;
+    
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    
+    const weightA = getPackSizeWeight(a.pack_size);
+    const weightB = getPackSizeWeight(b.pack_size);
+    return weightA - weightB;
   });
 };
-
-function formatPackSize(packSize) {
-    if (!packSize) return '';
-    const match = String(packSize).match(/^(\d+)Rs/i);
-    if (match) {
-        const retailPrice = parseInt(match[1]);
-        if (retailPrice <= 20) {
-            return String(packSize).replace(/\s*\d+\s*(?:g|gm|kg)\s*$/i, '');
-        }
-    }
-    return packSize;
-}
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
@@ -41,10 +68,16 @@ async function generateInvoicePdf(invoiceData, settings) {
     
     // Group categories for the summary table
     const categorySummary = {};
+    const priceSummary = {};
     if (items) {
         items.forEach(item => {
             const cat = item.category_name || 'Other';
             categorySummary[cat] = (categorySummary[cat] || 0) + item.executed_qty;
+            
+            const groupKey = extractPriceOrWeight(item.pack_size);
+            if (groupKey) {
+                priceSummary[groupKey] = (priceSummary[groupKey] || 0) + item.executed_qty;
+            }
         });
     }
 
@@ -198,22 +231,68 @@ async function generateInvoicePdf(invoiceData, settings) {
                 </tfoot>
             </table>
             
-            ${Object.keys(categorySummary).length > 0 ? `
-            <table class="excel-table">
-                <thead>
-                    <tr>
-                        <th style="text-align: center; background: #f8fafc;">Filling Type</th>
-                        ${Object.keys(categorySummary).map(cat => `<th style="text-align: center; background: #f8fafc;">${cat}</th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="text-align: center; font-weight: bold;">Box</td>
-                        ${Object.keys(categorySummary).map(cat => `<td style="text-align: center; font-weight: bold;">${categorySummary[cat]}</td>`).join('')}
-                    </tr>
-                </tbody>
-            </table>
-            ` : ''}
+            ${Object.keys(categorySummary).length > 0 ? (() => {
+                const preferredOrder = [
+                  'chips',
+                  'popcorn',
+                  'chocobite',
+                  'choco bites',
+                  'extended',
+                  'fryms',
+                  'fryums',
+                  'namkeen'
+                ];
+                
+                const getCategorySortWeight = (catName) => {
+                  const lowerName = catName.toLowerCase();
+                  const index = preferredOrder.indexOf(lowerName);
+                  return index !== -1 ? index : 999;
+                };
+
+                const sortedCategories = Object.keys(categorySummary).sort((a, b) => {
+                  return getCategorySortWeight(a) - getCategorySortWeight(b);
+                });
+
+                return `
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center; background: #f8fafc;">Filling Type</th>
+                            ${sortedCategories.map(cat => `<th style="text-align: center; background: #f8fafc; text-transform: uppercase;">${cat}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align: center; font-weight: bold;">Box</td>
+                            ${sortedCategories.map(cat => `<td style="text-align: center; font-weight: bold;">${categorySummary[cat]}</td>`).join('')}
+                        </tr>
+                    </tbody>
+                </table>
+                `;
+            })() : ''}
+
+            ${Object.keys(priceSummary).length > 0 ? (() => {
+                const sortedPrices = Object.keys(priceSummary).sort((a, b) => {
+                  return getPackSizeWeight(a) - getPackSizeWeight(b);
+                });
+
+                return `
+                <table class="excel-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center; background: #f8fafc;">Pack Size / Price</th>
+                            ${sortedPrices.map(price => `<th style="text-align: center; background: #f8fafc;">${price}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align: center; font-weight: bold;">Total Box</td>
+                            ${sortedPrices.map(price => `<td style="text-align: center; font-weight: bold;">${priceSummary[price]}</td>`).join('')}
+                        </tr>
+                    </tbody>
+                </table>
+                `;
+            })() : ''}
             
             <div style="display: flex; min-height: 150px; page-break-inside: avoid;">
                 <div style="flex: 1; padding: 4px 8px; border-right: 2px solid #000; font-size: 13px; font-weight: bold;">

@@ -36,6 +36,12 @@ const AdminReports = () => {
   const [transYear, setTransYear] = useState('');
   const [transLoading, setTransLoading] = useState(false);
 
+  // Transactions Distributor Filter State
+  const [transDistributor, setTransDistributor] = useState('all');
+  const [transDistSearch, setTransDistSearch] = useState('');
+  const [isTransDistOpen, setIsTransDistOpen] = useState(false);
+  const transDropdownRef = useRef<HTMLDivElement>(null);
+
   // Combobox State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [distributorSearchText, setDistributorSearchText] = useState('');
@@ -45,6 +51,9 @@ const AdminReports = () => {
     const handleClickOutside = (event: any) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (transDropdownRef.current && !transDropdownRef.current.contains(event.target)) {
+        setIsTransDistOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -58,6 +67,14 @@ const AdminReports = () => {
   const selectedDistributorName = selectedDistributor === 'all' 
     ? 'All Distributors (Global)' 
     : distributorsList.find(d => d.user_id.toString() === selectedDistributor)?.firm_name || 'Select Distributor';
+
+  const filteredTransDistributors = distributorsList.filter(d => 
+    d.firm_name.toLowerCase().includes(transDistSearch.toLowerCase())
+  );
+
+  const selectedTransDistributorName = transDistributor === 'all' 
+    ? 'All Distributors' 
+    : distributorsList.find(d => d.user_id.toString() === transDistributor)?.firm_name || 'Select Distributor';
 
   useEffect(() => {
     const fetchDistributors = async () => {
@@ -145,16 +162,21 @@ const AdminReports = () => {
     fetchTransactions();
   }, [transStartDate, transEndDate, transMonth, transYear]);
 
+  const filteredTransactions = transactions.filter(t => 
+    transDistributor === 'all' || 
+    t.firm_name === distributorsList.find(d => d.user_id.toString() === transDistributor)?.firm_name
+  );
+
   // Download Excel
   const handleDownloadExcel = () => {
-    if (transactions.length === 0) return alert('No data to download.');
+    if (filteredTransactions.length === 0) return alert('No data to download.');
     
     // Compute totals
-    const totalTaxable = transactions.reduce((sum, t) => sum + t.taxable_amount, 0);
-    const totalGst = transactions.reduce((sum, t) => sum + t.gst_amount, 0);
-    const totalAmount = transactions.reduce((sum, t) => sum + t.total_amount, 0);
+    const totalTaxable = filteredTransactions.reduce((sum, t) => sum + t.taxable_amount, 0);
+    const totalGst = filteredTransactions.reduce((sum, t) => sum + t.gst_amount, 0);
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + t.total_amount, 0);
 
-    const data = transactions.map((t, i) => ({
+    const data = filteredTransactions.map((t, i) => ({
       'SR': i + 1,
       'DATE': new Date(t.date).toLocaleDateString('en-GB'),
       'BILL NO': t.invoice_number,
@@ -186,32 +208,28 @@ const AdminReports = () => {
     doc.setFontSize(18);
     doc.text("Jollyz - Transaction Report", 14, 20);
     
-    let subtitle = "All Transactions";
+    let subtitle = "Filtered Transactions";
     if (transMonth && transYear) subtitle = `For ${transMonth}/${transYear}`;
     else if (transStartDate && transEndDate) subtitle = `From ${transStartDate} to ${transEndDate}`;
     
     doc.setFontSize(12);
     doc.text(subtitle, 14, 28);
 
-    const totalTaxable = transactions.reduce((sum, t) => sum + t.taxable_amount, 0);
-    const totalGst = transactions.reduce((sum, t) => sum + t.gst_amount, 0);
-    const totalAmount = transactions.reduce((sum, t) => sum + t.total_amount, 0);
+    const totalTaxable = filteredTransactions.reduce((sum, t) => sum + t.taxable_amount, 0);
+    const totalGst = filteredTransactions.reduce((sum, t) => sum + t.gst_amount, 0);
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + t.total_amount, 0);
 
     const tableColumn = ["SR", "Date", "Bill No", "Firm Name", "Town", "Taxable", "GST", "Total"];
-    const tableRows: any[] = [];
-
-    transactions.forEach((t, i) => {
-      tableRows.push([
-        i + 1,
-        new Date(t.date).toLocaleDateString('en-GB'),
-        t.invoice_number,
-        t.firm_name,
-        t.town,
-        `Rs ${t.taxable_amount.toFixed(2)}`,
-        `Rs ${t.gst_amount.toFixed(2)}`,
-        `Rs ${t.total_amount.toFixed(2)}`
-      ]);
-    });
+    const tableRows = filteredTransactions.map((t, i) => [
+      i + 1,
+      new Date(t.date).toLocaleDateString('en-GB'),
+      t.invoice_number,
+      t.firm_name,
+      t.town,
+      `Rs ${t.taxable_amount.toFixed(2)}`,
+      `Rs ${t.gst_amount.toFixed(2)}`,
+      `Rs ${t.total_amount.toFixed(2)}`
+    ]);
     
     // Add Grand Total row
     tableRows.push([
@@ -533,6 +551,53 @@ const AdminReports = () => {
             </h3>
             
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative' }} ref={transDropdownRef}>
+                <button 
+                  onClick={() => setIsTransDistOpen(!isTransDistOpen)}
+                  style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', minWidth: '180px', justifyContent: 'space-between', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  {selectedTransDistributorName} <ChevronDown size={14} />
+                </button>
+
+                {isTransDistOpen && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, width: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', marginTop: '4px', zIndex: 100, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <div style={{ padding: '6px', borderBottom: '1px solid #e2e8f0' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Search distributor..." 
+                        value={transDistSearch}
+                        onChange={e => setTransDistSearch(e.target.value)}
+                        style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', background: 'transparent' }}
+                      />
+                    </div>
+                    <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                      <div 
+                        onClick={() => { setTransDistributor('all'); setIsTransDistOpen(false); setTransDistSearch(''); }}
+                        style={{ padding: '8px 10px', cursor: 'pointer', fontSize: '13px', background: transDistributor === 'all' ? '#f1f5f9' : 'transparent', fontWeight: transDistributor === 'all' ? 600 : 400, color: transDistributor === 'all' ? 'var(--primary)' : '#334155' }}
+                        onMouseEnter={e => { if (transDistributor !== 'all') e.currentTarget.style.background = '#f8fafc'; }}
+                        onMouseLeave={e => { if (transDistributor !== 'all') e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        All Distributors
+                      </div>
+                      {filteredTransDistributors.map(d => (
+                        <div 
+                          key={d.user_id}
+                          onClick={() => { setTransDistributor(d.user_id.toString()); setIsTransDistOpen(false); setTransDistSearch(''); }}
+                          style={{ padding: '8px 10px', cursor: 'pointer', fontSize: '13px', background: transDistributor === d.user_id.toString() ? '#f1f5f9' : 'transparent', fontWeight: transDistributor === d.user_id.toString() ? 600 : 400, color: transDistributor === d.user_id.toString() ? 'var(--primary)' : '#334155' }}
+                          onMouseEnter={e => { if (transDistributor !== d.user_id.toString()) e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={e => { if (transDistributor !== d.user_id.toString()) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {d.firm_name}
+                        </div>
+                      ))}
+                      {filteredTransDistributors.length === 0 && (
+                        <div style={{ padding: '8px 10px', fontSize: '13px', color: '#94a3b8', textAlign: 'center' }}>No matches found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: '#f8fafc', padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                 <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Month:</span>
                 <select 
@@ -572,7 +637,7 @@ const AdminReports = () => {
               </div>
 
               <button 
-                onClick={() => { setTransStartDate(''); setTransEndDate(''); setTransMonth(''); setTransYear(''); }}
+                onClick={() => { setTransStartDate(''); setTransEndDate(''); setTransMonth(''); setTransYear(''); setTransDistributor('all'); }}
                 style={{ padding: '6px 12px', fontSize: '13px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}
               >
                 Clear
@@ -598,7 +663,7 @@ const AdminReports = () => {
           <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
             {transLoading ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading transactions...</div>
-            ) : transactions.length > 0 ? (
+            ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
@@ -613,7 +678,7 @@ const AdminReports = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t, i) => (
+                  {filteredTransactions.length > 0 ? filteredTransactions.map((t, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px 12px', fontSize: '13px', color: '#64748b' }}>{i + 1}</td>
                       <td style={{ padding: '10px 12px', fontSize: '13px' }}>{new Date(t.date).toLocaleDateString('en-GB')}</td>
@@ -624,25 +689,23 @@ const AdminReports = () => {
                       <td style={{ padding: '10px 12px', fontSize: '13px' }}>₹{t.gst_amount.toFixed(2)}</td>
                       <td style={{ padding: '10px 12px', fontSize: '13px', fontWeight: 600, color: '#059669' }}>₹{t.total_amount.toFixed(2)}</td>
                     </tr>
-                  ))}
-                  <tr style={{ background: '#f1f5f9', position: 'sticky', bottom: 0, zIndex: 10, borderTop: '2px solid #cbd5e1' }}>
-                    <td colSpan={5} style={{ padding: '12px', fontWeight: 'bold', textAlign: 'right', fontSize: '14px' }}>GRAND TOTAL:</td>
-                    <td style={{ padding: '12px', fontWeight: 'bold', fontSize: '14px' }}>
-                      ₹{transactions.reduce((sum, t) => sum + t.taxable_amount, 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: '12px', fontWeight: 'bold', fontSize: '14px' }}>
-                      ₹{transactions.reduce((sum, t) => sum + t.gst_amount, 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: '12px', fontWeight: 'bold', fontSize: '14px', color: '#059669' }}>
-                      ₹{transactions.reduce((sum, t) => sum + t.total_amount, 0).toFixed(2)}
-                    </td>
-                  </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                        No transactions found for the selected criteria.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
+                <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 10 }}>
+                  <tr>
+                    <td colSpan={5} style={{ padding: '12px', background: '#f8fafc', borderTop: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px', textAlign: 'right' }}>GRAND TOTAL:</td>
+                    <td style={{ padding: '12px', background: '#f8fafc', borderTop: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>₹{filteredTransactions.reduce((sum, t) => sum + t.taxable_amount, 0).toFixed(2)}</td>
+                    <td style={{ padding: '12px', background: '#f8fafc', borderTop: '2px solid #cbd5e1', color: '#334155', fontWeight: 700, fontSize: '13px' }}>₹{filteredTransactions.reduce((sum, t) => sum + t.gst_amount, 0).toFixed(2)}</td>
+                    <td style={{ padding: '12px', background: '#ecfdf5', borderTop: '2px solid #10b981', color: '#047857', fontWeight: 700, fontSize: '14px' }}>₹{filteredTransactions.reduce((sum, t) => sum + t.total_amount, 0).toFixed(2)}</td>
+                  </tr>
+                </tfoot>
               </table>
-            ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                No transactions found for the selected period.
-              </div>
             )}
           </div>
         </div>

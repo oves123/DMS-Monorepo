@@ -13,10 +13,42 @@ interface InvoiceModalProps {
 const CATEGORY_ORDER: Record<string, number> = {
   'chips': 1,
   'popcorn': 2,
-  'fryums': 3,
-  'namkeen': 4,
-  'kurkure': 5,
-  'choco bites': 6
+  'chocobite': 3,
+  'choco bites': 3,
+  'extended': 4,
+  'fryms': 5,
+  'fryums': 5,
+  'namkeen': 6
+};
+
+const extractPriceOrWeight = (packSize: string): string | null => {
+  if (!packSize) return null;
+  const str = String(packSize).trim();
+  const rsMatch = str.match(/(\d+)Rs/i);
+  if (rsMatch) return `${rsMatch[1]}Rs`;
+  
+  const weightMatch = str.match(/(\d+(?:\.\d+)?)\s*(g|gm|kg|ml|l)/i);
+  if (weightMatch) {
+    let unit = weightMatch[2].toLowerCase();
+    if (unit === 'gm') unit = 'g';
+    return `${weightMatch[1]}${unit}`;
+  }
+  return null;
+};
+
+const getPackSizeWeight = (packSize: string): number => {
+  if (!packSize) return 999999;
+  const str = String(packSize).toLowerCase();
+  const numMatch = str.match(/(\d+(\.\d+)?)/);
+  const num = numMatch ? parseFloat(numMatch[1]) : 0;
+  
+  if (str.includes('rs')) return num;
+  if (str.includes('kg')) return 10000 + (num * 1000);
+  if (str.includes('gm') || str.includes('g')) return 10000 + num;
+  if (str.includes('l') && !str.includes('ml')) return 20000 + (num * 1000);
+  if (str.includes('ml')) return 20000 + num;
+  
+  return 999000 + num;
 };
 
 const sortItemsByCategory = (items: any[]) => {
@@ -26,7 +58,14 @@ const sortItemsByCategory = (items: any[]) => {
     const catB = b.category_name ? String(b.category_name).toLowerCase().trim() : '';
     const rankA = CATEGORY_ORDER[catA] || 99;
     const rankB = CATEGORY_ORDER[catB] || 99;
-    return rankA - rankB;
+    
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    
+    const weightA = getPackSizeWeight(a.pack_size);
+    const weightB = getPackSizeWeight(b.pack_size);
+    return weightA - weightB;
   });
 };
 
@@ -46,6 +85,7 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
   const [data, setData] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [categorySummary, setCategorySummary] = useState<Record<string, number>>({});
+  const [priceSummary, setPriceSummary] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -62,13 +102,20 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
       setData(response.data);
       
       const summary: Record<string, number> = {};
+      const pSummary: Record<string, number> = {};
       if (response.data && response.data.items) {
         response.data.items.forEach((item: any) => {
           const cat = item.category_name || 'Other';
           summary[cat] = (summary[cat] || 0) + item.executed_qty;
+          
+          const groupKey = extractPriceOrWeight(item.pack_size);
+          if (groupKey) {
+            pSummary[groupKey] = (pSummary[groupKey] || 0) + item.executed_qty;
+          }
         });
       }
       setCategorySummary(summary);
+      setPriceSummary(pSummary);
       
       try {
         const settingsRes = await api.get('/api/settings/company');
@@ -343,10 +390,12 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                 const preferredOrder = [
                   'chips',
                   'popcorn',
+                  'chocobite',
+                  'choco bites',
+                  'extended',
+                  'fryms',
                   'fryums',
-                  'namkeen',
-                  'kurkure',
-                  'choco bites'
+                  'namkeen'
                 ];
                 
                 const getCategorySortWeight = (catName: string) => {
@@ -375,6 +424,36 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                         {sortedCategories.map(cat => (
                           <td key={cat} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>
                             {categorySummary[cat]}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                );
+              })()}
+              
+              {/* Price Summary Table */}
+              {Object.keys(priceSummary).length > 0 && (() => {
+                const sortedPrices = Object.keys(priceSummary).sort((a, b) => {
+                  return getPackSizeWeight(a) - getPackSizeWeight(b);
+                });
+
+                return (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', borderBottom: '2px solid #000' }} className="excel-table">
+                    <thead>
+                      <tr>
+                        <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc' }}>Pack Size / Price</th>
+                        {sortedPrices.map(price => (
+                          <th key={price} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', background: '#f8fafc' }}>{price}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>Total Box</td>
+                        {sortedPrices.map(price => (
+                          <td key={price} style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontWeight: 'bold' }}>
+                            {priceSummary[price]}
                           </td>
                         ))}
                       </tr>
