@@ -12,13 +12,13 @@ interface InvoiceModalProps {
 
 const CATEGORY_ORDER: Record<string, number> = {
   'chips': 1,
-  'popcorn': 2,
-  'chocobite': 3,
-  'choco bites': 3,
-  'extended': 4,
-  'fryms': 5,
+  'corn products': 2,
+  'chocos': 3,
+  'extruded': 4,
   'fryums': 5,
-  'namkeen': 6
+  'namkeen': 6,
+  'biscuits': 7,
+  'bakery': 8
 };
 
 const extractPriceOrWeight = (packSize: string): string | null => {
@@ -54,18 +54,19 @@ const getPackSizeWeight = (packSize: string): number => {
 const sortItemsByCategory = (items: any[]) => {
   if (!items || !Array.isArray(items)) return items;
   return [...items].sort((a, b) => {
+    const weightA = getPackSizeWeight(a.pack_size);
+    const weightB = getPackSizeWeight(b.pack_size);
+    
+    if (weightA !== weightB) {
+      return weightA - weightB;
+    }
+    
     const catA = a.category_name ? String(a.category_name).toLowerCase().trim() : '';
     const catB = b.category_name ? String(b.category_name).toLowerCase().trim() : '';
     const rankA = CATEGORY_ORDER[catA] || 99;
     const rankB = CATEGORY_ORDER[catB] || 99;
     
-    if (rankA !== rankB) {
-      return rankA - rankB;
-    }
-    
-    const weightA = getPackSizeWeight(a.pack_size);
-    const weightB = getPackSizeWeight(b.pack_size);
-    return weightA - weightB;
+    return rankA - rankB;
   });
 };
 
@@ -389,13 +390,13 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
               {Object.keys(categorySummary).length > 0 && (() => {
                 const preferredOrder = [
                   'chips',
-                  'popcorn',
-                  'chocobite',
-                  'choco bites',
-                  'extended',
-                  'fryms',
+                  'corn products',
+                  'chocos',
+                  'extruded',
                   'fryums',
-                  'namkeen'
+                  'namkeen',
+                  'biscuits',
+                  'bakery'
                 ];
                 
                 const getCategorySortWeight = (catName: string) => {
