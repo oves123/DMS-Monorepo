@@ -27,7 +27,10 @@ const AdminLedger = () => {
     amount: '',
     payment_mode: 'Cash',
     reference_no: '',
-    payment_date: new Date().toISOString().split('T')[0]
+    payment_date: (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })()
   });
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
@@ -67,7 +70,9 @@ const AdminLedger = () => {
       });
       showToast('Bulk payment processed successfully!', 'success');
       setBulkPaymentDistributor(null);
-      setBulkPaymentForm({ amount: '', payment_mode: 'Cash', reference_no: '', payment_date: new Date().toISOString().split('T')[0] });
+      const d = new Date();
+      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      setBulkPaymentForm({ amount: '', payment_mode: 'Cash', reference_no: '', payment_date: localDate });
       fetchLedger(); // Refresh
     } catch (err) {
       showToast('Failed to process bulk payment', 'error');

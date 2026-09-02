@@ -14,9 +14,15 @@ const AdminReports = () => {
   const [distributorData, setDistributorData] = useState([]);
   const [inventoryAlerts, setInventoryAlerts] = useState<any[]>([]);
   const today = new Date();
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const defaultStart = firstDay.toISOString().split('T')[0];
-  const defaultEnd = today.toISOString().split('T')[0];
+  const defaultStart = formatLocalDate(firstDay);
+  const defaultEnd = formatLocalDate(today);
 
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(defaultEnd);
