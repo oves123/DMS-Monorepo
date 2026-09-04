@@ -146,12 +146,14 @@ async function generateInvoicePdf(invoiceData, settings) {
                     <p><strong>Bill To:</strong> ${invoice.firm_name}</p>
                     ${invoice.owner_name ? `<p>Owner Name: ${invoice.owner_name}</p>` : ''}
                     <p>Address: ${invoice.address}</p>
+                    ${invoice.gst_number ? `<p>GST No : ${invoice.gst_number}</p>` : ''}
                     <p style="margin: 0;">Place Of Supply: Maharashtra ${invoice.fssai_number ? `, FSSAI No : ${invoice.fssai_number}` : ''}</p>
                 </div>
                 <div style="flex: 1; padding: 4px 8px;">
                     <p><strong>Ship To:</strong> ${invoice.firm_name}</p>
                     ${invoice.owner_name ? `<p>Owner Name: ${invoice.owner_name}</p>` : ''}
                     <p>Address: ${invoice.address}</p>
+                    ${invoice.gst_number ? `<p>GST No : ${invoice.gst_number}</p>` : ''}
                     <p style="margin: 0;">Place Of Supply: Maharashtra ${invoice.fssai_number ? `, FSSAI No : ${invoice.fssai_number}` : ''}</p>
                 </div>
             </div>

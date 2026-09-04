@@ -244,6 +244,9 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     <p style={{ margin: '0 0 2px 0' }}>Owner Name: {data.invoice.owner_name}</p>
                   )}
                   <p style={{ margin: '0 0 2px 0' }}>Address: {data.invoice.address}</p>
+                  {data.invoice.gst_number && (
+                    <p style={{ margin: '0 0 2px 0' }}>GST No : {data.invoice.gst_number}</p>
+                  )}
                   <p style={{ margin: '0' }}>Place Of Supply: Maharashtra {data.invoice.fssai_number ? `, FSSAI No : ${data.invoice.fssai_number}` : ''}</p>
                 </div>
                 <div style={{ flex: 1, padding: '4px 8px' }}>
@@ -252,6 +255,9 @@ const InvoiceModal = ({ orderId, onClose }: InvoiceModalProps) => {
                     <p style={{ margin: '0 0 2px 0' }}>Owner Name: {data.invoice.owner_name}</p>
                   )}
                   <p style={{ margin: '0 0 2px 0' }}>Address: {data.invoice.address}</p>
+                  {data.invoice.gst_number && (
+                    <p style={{ margin: '0 0 2px 0' }}>GST No : {data.invoice.gst_number}</p>
+                  )}
                   <p style={{ margin: '0' }}>Place Of Supply: Maharashtra {data.invoice.fssai_number ? `, FSSAI No : ${data.invoice.fssai_number}` : ''}</p>
                 </div>
               </div>
