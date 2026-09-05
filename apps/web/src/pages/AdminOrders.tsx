@@ -38,6 +38,25 @@ const AdminOrders = () => {
     fetchOrders();
   }, []);
 
+  // Auto-calculate Advance Payment (creditApplied) whenever quantities change
+  useEffect(() => {
+    if (executingOrderId !== null) {
+      const order = orders.find(o => o.order_id === executingOrderId);
+      if (order) {
+        let orderTotal = 0;
+        order.items.forEach((item: any) => {
+          const qty = executionQuantities[item.order_item_id] !== undefined ? executionQuantities[item.order_item_id] : Math.min(item.requested_qty, item.current_stock || 0);
+          const itemSubtotal = qty * item.price_at_order;
+          const gstPct = item.gst_percent || 0;
+          orderTotal += itemSubtotal + (itemSubtotal * (gstPct / 2 / 100)) + (itemSubtotal * (gstPct / 2 / 100));
+        });
+        
+        const wb = parseFloat(order.wallet_balance || 0);
+        setCreditApplied(Math.min(wb, orderTotal));
+      }
+    }
+  }, [executingOrderId, executionQuantities, orders]);
+
   const fetchOrders = async () => {
     try {
       const response = await api.get('/api/orders/admin');
@@ -402,15 +421,17 @@ const AdminOrders = () => {
                         <h4 style={{ margin: '0 0 12px 0', color: '#0f172a' }}>Billing Adjustments</h4>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '16px', alignItems: 'end' }}>
                           <div>
-                            <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Wallet Credit to Apply</label>
+                            <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+                               Advance Payment Auto-Applied
+                            </label>
                             <input 
                               type="number" 
                               value={creditApplied} 
                               readOnly
                               disabled
-                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed' }}
+                              style={{ width: '100%', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed', fontWeight: 'bold' }}
                             />
-                            {order.apply_wallet && <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>Distributor requested wallet discount</div>}
+                            {parseFloat(order.wallet_balance || 0) > 0 && <div style={{ fontSize: '11px', color: '#059669', marginTop: '4px' }}>Available Advance: ₹{parseFloat(order.wallet_balance || 0).toFixed(2)}</div>}
                           </div>
                           <div>
                             <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
@@ -500,12 +521,8 @@ const AdminOrders = () => {
                           });
                           setExecutionQuantities(defaultQts);
                           
-                          if (order.apply_wallet) {
-                              const wb = parseFloat(order.wallet_balance || 0);
-                              setCreditApplied(Math.min(wb, orderTotal));
-                          } else {
-                              setCreditApplied(0);
-                          }
+                          const wb = parseFloat(order.wallet_balance || 0);
+                          setCreditApplied(Math.min(wb, orderTotal));
                         }}>Process Order</button>
                         </>
                       )}

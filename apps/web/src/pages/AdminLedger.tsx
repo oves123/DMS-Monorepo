@@ -319,23 +319,22 @@ const AdminLedger = () => {
 
                               <button 
                                 onClick={(e) => { e.stopPropagation(); setBulkPaymentDistributor(dist); }}
-                                disabled={dist.total_pending <= 0.01}
                                 style={{
-                                  background: dist.total_pending <= 0.01 ? '#e2e8f0' : '#10b981',
+                                  background: '#10b981',
                                   border: 'none',
-                                  color: dist.total_pending <= 0.01 ? '#94a3b8' : '#fff',
+                                  color: '#fff',
                                   padding: '6px 12px',
                                   borderRadius: '6px',
                                   fontSize: '13px',
                                   fontWeight: 600,
-                                  cursor: dist.total_pending <= 0.01 ? 'not-allowed' : 'pointer',
+                                  cursor: 'pointer',
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '6px'
                                 }}
                               >
                                 <CreditCard size={14} /> 
-                                {dist.total_pending <= 0.01 ? 'Fully Paid' : 'Record Payment'}
+                                Record Payment
                               </button>
                             </div>
                           </td>
@@ -428,10 +427,11 @@ const AdminLedger = () => {
           background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
           <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '500px' }}>
-            <h3 style={{ marginBottom: '8px', fontSize: '20px' }}>Record Bulk Payment</h3>
+            <h3 style={{ marginBottom: '8px', fontSize: '20px' }}>Record Payment / Advance</h3>
             <p style={{ color: '#64748b', marginBottom: '24px' }}>
               Distributor: <strong>{bulkPaymentDistributor.firm_name}</strong><br/>
-              Total Pending: <strong style={{ color: '#dc2626' }}>₹{bulkPaymentDistributor.total_pending.toFixed(2)}</strong>
+              Total Pending: <strong style={{ color: '#dc2626' }}>₹{bulkPaymentDistributor.total_pending.toFixed(2)}</strong><br/>
+              Advance Balance: <strong style={{ color: '#059669' }}>₹{(bulkPaymentDistributor.wallet_balance || 0).toFixed(2)}</strong>
             </p>
             <form onSubmit={handleBulkPaymentSubmit}>
               <div className="form-grid">
@@ -440,14 +440,13 @@ const AdminLedger = () => {
                   <input 
                     type="number" 
                     step="0.01" 
-                    max={bulkPaymentDistributor.total_pending.toFixed(2)}
                     value={bulkPaymentForm.amount} 
                     onChange={(e) => setBulkPaymentForm({...bulkPaymentForm, amount: e.target.value})} 
                     required 
                     placeholder="e.g. 10000"
                     style={{ fontSize: '18px', padding: '12px' }}
                   />
-                  <small style={{ color: '#64748b', marginTop: '4px' }}>Amount will automatically be applied to oldest unpaid invoices first.</small>
+                  <small style={{ color: '#64748b', marginTop: '4px' }}>Amount will automatically be applied to oldest unpaid invoices first. <br/><i>💡 Tip: Any excess amount will be saved as an Advance Payment.</i></small>
                 </div>
                 
                 <div className="input-group">
@@ -487,7 +486,7 @@ const AdminLedger = () => {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
                 <button type="button" className="secondary-btn" onClick={() => setBulkPaymentDistributor(null)} disabled={isSubmittingPayment}>Cancel</button>
                 <button type="submit" className="primary-btn" disabled={isSubmittingPayment}>
-                  {isSubmittingPayment ? 'Processing...' : 'Apply Payment to Invoices'}
+                  {isSubmittingPayment ? 'Processing...' : 'Save Payment'}
                 </button>
               </div>
             </form>

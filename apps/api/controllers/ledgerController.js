@@ -9,7 +9,7 @@ exports.getInvoices = async (req, res) => {
                 i.invoice_number, i.invoice_id, i.subtotal, i.cgst_amount, i.sgst_amount, i.grand_total, i.created_at,
                 i.credit_applied, i.extra_discount, i.discount_reason,
                 i.paid_amount, i.payment_status,
-                o.order_id, u.firm_name, u.user_id as distributor_id
+                o.order_id, u.firm_name, u.user_id as distributor_id, u.wallet_balance
             FROM Invoices i
             JOIN Orders o ON i.order_id = o.order_id
             JOIN Users u ON o.distributor_id = u.user_id
@@ -22,6 +22,7 @@ exports.getInvoices = async (req, res) => {
                 ledgerMap[row.distributor_id] = {
                     distributor_id: row.distributor_id,
                     firm_name: row.firm_name,
+                    wallet_balance: row.wallet_balance || 0,
                     total_invoices: 0,
                     total_billed: 0,
                     total_paid: 0,
@@ -222,6 +223,7 @@ exports.recordBulkPayment = async (req, res) => {
     try {
         const { distributor_id, amount, payment_mode, reference_no, payment_date, adminId } = req.body;
         const recordedBy = adminId || 1; // Fallback to 1
+        const effectiveDate = payment_date ? new Date(payment_date) : new Date();
 
         let remainingAmount = Number(amount);
         if (remainingAmount <= 0) return res.status(400).json({ message: 'Invalid amount' });
@@ -262,7 +264,7 @@ exports.recordBulkPayment = async (req, res) => {
             payReq.input('amount', sql.Decimal(18, 2), amountToApply);
             payReq.input('payment_mode', sql.VarChar(50), payment_mode);
             payReq.input('reference_no', sql.VarChar(100), reference_no || '');
-            payReq.input('payment_date', sql.DateTime, payment_date ? new Date(payment_date) : new Date());
+            payReq.input('payment_date', sql.DateTime, effectiveDate);
             payReq.input('recorded_by', sql.Int, recordedBy);
 
             await payReq.query(`
@@ -433,11 +435,12 @@ exports.downloadDistributorLedger = async (req, res) => {
             WHERE o.distributor_id = @dist_id 
         `);
 
-        // Get all Payments (Credits)
+        // Get all Payments (Credits) - Grouped by Minute (SMALLDATETIME)
         const paymentsRes = await request.query(`
-            SELECT p.payment_mode as ref, p.amount, p.payment_date as date
+            SELECT p.payment_mode as ref, SUM(p.amount) as amount, CAST(p.payment_date as SMALLDATETIME) as date
             FROM Payments p
             WHERE p.distributor_id = @dist_id
+            GROUP BY CAST(p.payment_date as SMALLDATETIME), p.payment_mode, p.reference_no
         `);
 
         // Merge and Sort

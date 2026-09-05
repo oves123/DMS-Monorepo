@@ -430,7 +430,7 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
                     <table style="width: 100%; margin-top: 8px;">
                         <tr><td>Total Billed:</td><td style="text-align: right;">₹${(summary.total_billed || 0).toFixed(2)}</td></tr>
                         <tr><td>Total Paid:</td><td style="text-align: right; color: #16a34a;">₹${(summary.total_paid || 0).toFixed(2)}</td></tr>
-                        <tr><td style="font-weight: bold; padding-top: 4px;">Pending Balance:</td><td style="text-align: right; font-weight: bold; color: #ef4444; padding-top: 4px;">₹${(summary.total_pending || 0).toFixed(2)}</td></tr>
+                        <tr><td style="font-weight: bold; padding-top: 4px;">Pending Balance:</td><td style="text-align: right; font-weight: bold; color: ${summary.total_pending < 0 ? '#16a34a' : '#ef4444'}; padding-top: 4px;">₹${Math.abs(summary.total_pending || 0).toFixed(2)} ${Math.abs(summary.total_pending || 0) < 0.01 ? '' : (summary.total_pending > 0 ? '(Dr)' : '(Cr)')}</td></tr>
                     </table>
                 </div>
             </div>
@@ -454,7 +454,7 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
                                 <td>${row.type === 'INVOICE' ? `Invoice #${row.ref}` : `Payment Received (${row.ref})`}</td>
                                 <td style="text-align: right;">${row.debit ? row.debit.toFixed(2) : '-'}</td>
                                 <td style="text-align: right; color: #16a34a;">${row.credit ? row.credit.toFixed(2) : '-'}</td>
-                                <td style="text-align: right; font-weight: bold;">${row.balance.toFixed(2)}</td>
+                                <td style="text-align: right; font-weight: bold;">${Math.abs(row.balance).toFixed(2)} ${Math.abs(row.balance) < 0.01 ? '' : (row.balance > 0 ? '(Dr)' : '(Cr)')}</td>
                             </tr>
                         `).join('')}
                     </tbody>
