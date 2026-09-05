@@ -10,9 +10,10 @@ exports.getInvoices = async (req, res) => {
                 i.credit_applied, i.extra_discount, i.discount_reason,
                 i.paid_amount, i.payment_status,
                 o.order_id, u.firm_name, u.user_id as distributor_id, u.wallet_balance
-            FROM Invoices i
-            JOIN Orders o ON i.order_id = o.order_id
-            JOIN Users u ON o.distributor_id = u.user_id
+            FROM Users u
+            LEFT JOIN Orders o ON u.user_id = o.distributor_id
+            LEFT JOIN Invoices i ON o.order_id = i.order_id
+            WHERE u.role IN ('DISTRIBUTOR', 'ND', 'OFFLINE_CLIENT')
             ORDER BY i.created_at DESC
         `);
 
@@ -31,11 +32,13 @@ exports.getInvoices = async (req, res) => {
                 };
             }
 
-            ledgerMap[row.distributor_id].total_invoices += 1;
-            ledgerMap[row.distributor_id].total_billed += row.grand_total;
-            ledgerMap[row.distributor_id].total_paid += (row.paid_amount || 0);
-            ledgerMap[row.distributor_id].total_pending += (row.grand_total - (row.paid_amount || 0));
-            ledgerMap[row.distributor_id].invoices.push(row);
+            if (row.invoice_id) {
+                ledgerMap[row.distributor_id].total_invoices += 1;
+                ledgerMap[row.distributor_id].total_billed += row.grand_total;
+                ledgerMap[row.distributor_id].total_paid += (row.paid_amount || 0);
+                ledgerMap[row.distributor_id].total_pending += (row.grand_total - (row.paid_amount || 0));
+                ledgerMap[row.distributor_id].invoices.push(row);
+            }
 
         });
 
