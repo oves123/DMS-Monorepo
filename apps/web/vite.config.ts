@@ -10,3 +10,5 @@ export default defineConfig({
     strictPort: true
   }
 })
+
+// Trigger restart

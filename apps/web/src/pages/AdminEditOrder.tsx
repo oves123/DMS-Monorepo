@@ -140,7 +140,8 @@ const AdminEditOrder = () => {
       if (next <= 0) {
         delete newCart[variant.variant_id];
       } else {
-        const price = pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate;
+        const existingPrice = prev[variant.variant_id]?.price;
+        const price = existingPrice !== undefined ? existingPrice : (pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate);
         newCart[variant.variant_id] = { 
           qty: next, 
           variant, 
@@ -165,7 +166,8 @@ const AdminEditOrder = () => {
       if (finalQty <= 0 || isNaN(finalQty)) {
         delete newCart[variant.variant_id];
       } else {
-        const price = pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate;
+        const existingPrice = prev[variant.variant_id]?.price;
+        const price = existingPrice !== undefined ? existingPrice : (pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate);
         newCart[variant.variant_id] = { 
           qty: finalQty, 
           variant, 
@@ -178,17 +180,8 @@ const AdminEditOrder = () => {
     });
   };
 
-  // Re-calculate cart prices if pricing tier changes
-  useEffect(() => {
-    setCart(prev => {
-      const newCart = { ...prev };
-      Object.keys(newCart).forEach(key => {
-        const item = newCart[parseInt(key)];
-        item.price = pricingTier === 'retailer' ? item.variant.retailer_rate : item.variant.distributor_rate;
-      });
-      return newCart;
-    });
-  }, [pricingTier]);
+  // Removed the useEffect that forcefully overwrites prices on load
+  // Prices will only recalculate if the admin manually changes the Pricing Tier dropdown
 
   const cartTotal = useMemo(() => {
     let total = 0;
@@ -306,7 +299,19 @@ const AdminEditOrder = () => {
                 <label>Pricing Tier *</label>
                 <select 
                   value={pricingTier} 
-                  onChange={e => setPricingTier(e.target.value as 'distributor' | 'retailer')}
+                  onChange={e => {
+                    const newTier = e.target.value as 'distributor' | 'retailer';
+                    setPricingTier(newTier);
+                    setCart(prev => {
+                      const newCart = { ...prev };
+                      Object.keys(newCart).forEach(key => {
+                        const item = newCart[parseInt(key)];
+                        item.price = newTier === 'retailer' ? item.variant.retailer_rate : item.variant.distributor_rate;
+                      });
+                      return newCart;
+                    });
+                    setHasChanges(true);
+                  }}
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: '6px' }}
                 >
                   <option value="distributor">Distributor Rate (D-Rate)</option>

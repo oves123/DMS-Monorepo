@@ -330,19 +330,9 @@ async function generateInvoicePdf(invoiceData, settings) {
     </body>
     </html>
     `;
-
-    let executablePath;
-    if (fs.existsSync('/usr/bin/chromium-browser')) {
-        executablePath = '/usr/bin/chromium-browser';
-    } else if (fs.existsSync('/usr/bin/chromium')) {
-        executablePath = '/usr/bin/chromium';
-    } else if (fs.existsSync('/usr/bin/google-chrome')) {
-        executablePath = '/usr/bin/google-chrome';
-    }
-
     const browser = await puppeteer.launch({
         headless: "new",
-        executablePath: executablePath,
+
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox',
@@ -478,19 +468,9 @@ async function generateLedgerPdf(ledgerData, distributorDetails, settings) {
     </body>
     </html>
     `;
-
-    let executablePath;
-    if (fs.existsSync('/usr/bin/chromium-browser')) {
-        executablePath = '/usr/bin/chromium-browser';
-    } else if (fs.existsSync('/usr/bin/chromium')) {
-        executablePath = '/usr/bin/chromium';
-    } else if (fs.existsSync('/usr/bin/google-chrome')) {
-        executablePath = '/usr/bin/google-chrome';
-    }
-
     const browser = await puppeteer.launch({
         headless: "new",
-        executablePath: executablePath,
+
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox',
@@ -646,19 +626,9 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
     </body>
     </html>
     `;
-
-    let executablePath;
-    if (fs.existsSync('/usr/bin/chromium-browser')) {
-        executablePath = '/usr/bin/chromium-browser';
-    } else if (fs.existsSync('/usr/bin/chromium')) {
-        executablePath = '/usr/bin/chromium';
-    } else if (fs.existsSync('/usr/bin/google-chrome')) {
-        executablePath = '/usr/bin/google-chrome';
-    }
-
     const browser = await puppeteer.launch({
         headless: "new",
-        executablePath: executablePath,
+
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox',
@@ -694,3 +664,4 @@ async function generateCreditNotePdf(creditNoteData, distributorDetails, setting
 }
 
 module.exports = { generateInvoicePdf, generateLedgerPdf, generateCreditNotePdf };
+
