@@ -12,6 +12,7 @@ const AdminEditOrder = () => {
   const [products, setProducts] = useState<any[]>([]);
   
   const [selectedClient, setSelectedClient, clearClient] = useAutoSave<any>(`admin_edit_order_${id}_client`, null);
+  const [priceListVersion, setPriceListVersion] = useState<'new' | 'old'>('new');
   const [pricingTier, setPricingTier] = useState<'distributor' | 'retailer'>('distributor');
   
   const [cart, setCart, clearCart] = useAutoSave<{ [key: number]: { qty: number, variant: any, price: number, product_name?: string } }>(`admin_edit_order_${id}_cart`, {});
@@ -75,6 +76,7 @@ const AdminEditOrder = () => {
         setSelectedClient(client);
         if (client) {
             setPricingTier(client.rate_type || 'distributor');
+            setPriceListVersion(client.rate_version === 'old' ? 'old' : 'new');
         }
         
         // Populate cart
@@ -122,7 +124,16 @@ const AdminEditOrder = () => {
     setSelectedClient(client);
     if (client) {
       setPricingTier(client.rate_type || 'distributor');
+      setPriceListVersion(client.rate_version === 'old' ? 'old' : 'new');
     }
+  };
+
+  const getPrice = (variant: any) => {
+    if (priceListVersion === 'old') {
+        if (pricingTier === 'retailer' && variant.old_retailer_rate != null) return variant.old_retailer_rate;
+        if (pricingTier === 'distributor' && variant.old_distributor_rate != null) return variant.old_distributor_rate;
+    }
+    return pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate;
   };
 
   const updateCart = (variant: any, delta: number, productName?: string) => {
@@ -141,7 +152,7 @@ const AdminEditOrder = () => {
         delete newCart[variant.variant_id];
       } else {
         const existingPrice = prev[variant.variant_id]?.price;
-        const price = existingPrice !== undefined ? existingPrice : (pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate);
+        const price = existingPrice !== undefined ? existingPrice : getPrice(variant);
         newCart[variant.variant_id] = { 
           qty: next, 
           variant, 
@@ -167,7 +178,7 @@ const AdminEditOrder = () => {
         delete newCart[variant.variant_id];
       } else {
         const existingPrice = prev[variant.variant_id]?.price;
-        const price = existingPrice !== undefined ? existingPrice : (pricingTier === 'retailer' ? variant.retailer_rate : variant.distributor_rate);
+        const price = existingPrice !== undefined ? existingPrice : getPrice(variant);
         newCart[variant.variant_id] = { 
           qty: finalQty, 
           variant, 
@@ -270,7 +281,7 @@ const AdminEditOrder = () => {
               <Settings2 size={18} /> Order Configuration
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
               <div className="input-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label>Select Client *</label>
@@ -296,6 +307,38 @@ const AdminEditOrder = () => {
               </div>
 
               <div className="input-group">
+                <label>Price List Version *</label>
+                <select 
+                  value={priceListVersion} 
+                  onChange={e => {
+                    const newVersion = e.target.value as 'new' | 'old';
+                    setPriceListVersion(newVersion);
+                    setCart(prev => {
+                      const newCart = { ...prev };
+                      Object.keys(newCart).forEach(key => {
+                        const item = newCart[parseInt(key)];
+                        const tempVersionObj = { priceListVersion: newVersion, pricingTier };
+                        const getDynamicPrice = (v: any) => {
+                            if (tempVersionObj.priceListVersion === 'old') {
+                                if (tempVersionObj.pricingTier === 'retailer' && v.old_retailer_rate != null) return v.old_retailer_rate;
+                                if (tempVersionObj.pricingTier === 'distributor' && v.old_distributor_rate != null) return v.old_distributor_rate;
+                            }
+                            return tempVersionObj.pricingTier === 'retailer' ? v.retailer_rate : v.distributor_rate;
+                        };
+                        item.price = getDynamicPrice(item.variant);
+                      });
+                      return newCart;
+                    });
+                    setHasChanges(true);
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                >
+                  <option value="new">New Price</option>
+                  <option value="old">Old Price</option>
+                </select>
+              </div>
+
+              <div className="input-group">
                 <label>Pricing Tier *</label>
                 <select 
                   value={pricingTier} 
@@ -306,7 +349,15 @@ const AdminEditOrder = () => {
                       const newCart = { ...prev };
                       Object.keys(newCart).forEach(key => {
                         const item = newCart[parseInt(key)];
-                        item.price = newTier === 'retailer' ? item.variant.retailer_rate : item.variant.distributor_rate;
+                        const tempVersionObj = { priceListVersion, pricingTier: newTier };
+                        const getDynamicPrice = (v: any) => {
+                            if (tempVersionObj.priceListVersion === 'old') {
+                                if (tempVersionObj.pricingTier === 'retailer' && v.old_retailer_rate != null) return v.old_retailer_rate;
+                                if (tempVersionObj.pricingTier === 'distributor' && v.old_distributor_rate != null) return v.old_distributor_rate;
+                            }
+                            return tempVersionObj.pricingTier === 'retailer' ? v.retailer_rate : v.distributor_rate;
+                        };
+                        item.price = getDynamicPrice(item.variant);
                       });
                       return newCart;
                     });
@@ -393,7 +444,7 @@ const AdminEditOrder = () => {
                         </tr>
                         {isExpanded && p.variants.map((v: any) => {
                           const qty = cart[v.variant_id]?.qty || '';
-                          const price = pricingTier === 'retailer' ? v.retailer_rate : v.distributor_rate;
+                          const price = getPrice(v);
                           
                           return (
                             <tr key={v.variant_id} style={{ background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
