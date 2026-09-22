@@ -523,9 +523,10 @@ const AdminProducts = () => {
       {editingVariant && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
+          padding: '20px'
         }}>
-          <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '600px' }}>
+          <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ marginBottom: '24px', fontSize: '20px' }}>Edit Product</h3>
             <form onSubmit={handleUpdate}>
               <div className="form-grid">
@@ -603,9 +604,10 @@ const AdminProducts = () => {
       {addingVariantTo && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
+          padding: '20px'
         }}>
-          <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '600px' }}>
+          <div style={{ background: '#fff', padding: '32px', borderRadius: '12px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ marginBottom: '8px', fontSize: '20px' }}>Add New Variant</h3>
             <p style={{ color: '#64748b', marginBottom: '24px' }}>Adding variant to <strong>{addingVariantTo.name}</strong></p>
             <form onSubmit={handleAddVariantSubmit}>
