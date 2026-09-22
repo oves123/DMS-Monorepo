@@ -163,13 +163,15 @@ exports.addProduct = async (req, res) => {
                 varReq.input(`uom_${index}`, sql.VarChar, v.uom || 'Box');
                 varReq.input(`pack_size_${index}`, sql.VarChar, v.pack_size);
                 varReq.input(`pieces_per_box_${index}`, sql.Int, v.pieces_per_box || parsePiecesFromPackSize(v.pack_size));
-                varReq.input(`distributor_rate_${index}`, sql.Decimal(10,2), v.distributor_rate);
-                varReq.input(`retailer_rate_${index}`, sql.Decimal(10,2), v.retailer_rate);
+                varReq.input(`distributor_rate_${index}`, sql.Decimal(10,2), v.distributor_rate || 0);
+                varReq.input(`retailer_rate_${index}`, sql.Decimal(10,2), v.retailer_rate || 0);
+                varReq.input(`old_distributor_rate_${index}`, sql.Decimal(10,2), v.old_distributor_rate);
+                varReq.input(`old_retailer_rate_${index}`, sql.Decimal(10,2), v.old_retailer_rate);
                 varReq.input(`mrp_${index}`, sql.Decimal(10,2), v.mrp);
 
                 await varReq.query(`
-                    INSERT INTO ProductVariants (product_id, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
-                    VALUES (@product_id, @uom_${index}, @pack_size_${index}, @pieces_per_box_${index}, @distributor_rate_${index}, @retailer_rate_${index}, @mrp_${index})
+                    INSERT INTO ProductVariants (product_id, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, old_distributor_rate, old_retailer_rate, mrp)
+                    VALUES (@product_id, @uom_${index}, @pack_size_${index}, @pieces_per_box_${index}, @distributor_rate_${index}, @retailer_rate_${index}, @old_distributor_rate_${index}, @old_retailer_rate_${index}, @mrp_${index})
                 `);
             }
         }
@@ -189,7 +191,7 @@ exports.updateProductVariant = async (req, res) => {
     const transaction = new sql.Transaction();
     try {
         const variant_id = req.params.variant_id;
-        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, gst_percent, mrp } = req.body;
+        const { name, category_name, hsn_code, uom, pack_size, pieces_per_box, distributor_rate, retailer_rate, old_distributor_rate, old_retailer_rate, gst_percent, mrp } = req.body;
 
         await transaction.begin();
         const request = new sql.Request(transaction);
@@ -246,13 +248,15 @@ exports.updateProductVariant = async (req, res) => {
         }
 
         request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
-        request.input('distributor_r', sql.Decimal(10,2), distributor_rate);
-        request.input('ret_r', sql.Decimal(10,2), retailer_rate);
+        request.input('distributor_r', sql.Decimal(10,2), distributor_rate || 0);
+        request.input('ret_r', sql.Decimal(10,2), retailer_rate || 0);
+        request.input('old_distributor_r', sql.Decimal(10,2), old_distributor_rate);
+        request.input('old_ret_r', sql.Decimal(10,2), old_retailer_rate);
         request.input('mrp', sql.Decimal(10,2), mrp || 0);
         
         await request.query(`
             UPDATE ProductVariants
-            SET uom = @uom, pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r, mrp = @mrp
+            SET uom = @uom, pack_size = @p_size, pieces_per_box = @pieces_per_box, distributor_rate = @distributor_r, retailer_rate = @ret_r, old_distributor_rate = @old_distributor_r, old_retailer_rate = @old_ret_r, mrp = @mrp
             WHERE variant_id = @var_id
         `);
 
@@ -405,7 +409,7 @@ exports.bulkUploadProducts = async (req, res) => {
 exports.addProductVariant = async (req, res) => {
     try {
         const { product_id } = req.params;
-        const { pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp } = req.body;
+        const { pack_size, pieces_per_box, distributor_rate, retailer_rate, old_distributor_rate, old_retailer_rate, mrp } = req.body;
 
         const request = new sql.Request();
         request.input('product_id', sql.Int, product_id);
@@ -423,12 +427,14 @@ exports.addProductVariant = async (req, res) => {
         request.input('pieces_per_box', sql.Int, pieces_per_box || parsePiecesFromPackSize(pack_size));
         request.input('distributor_rate', sql.Decimal(10,2), distributor_rate || 0);
         request.input('retailer_rate', sql.Decimal(10,2), retailer_rate || 0);
+        request.input('old_distributor_rate', sql.Decimal(10,2), old_distributor_rate);
+        request.input('old_retailer_rate', sql.Decimal(10,2), old_retailer_rate);
         request.input('mrp', sql.Decimal(10,2), mrp || 0);
 
         const result = await request.query(`
-            INSERT INTO ProductVariants (product_id, pack_size, pieces_per_box, distributor_rate, retailer_rate, mrp)
+            INSERT INTO ProductVariants (product_id, pack_size, pieces_per_box, distributor_rate, retailer_rate, old_distributor_rate, old_retailer_rate, mrp)
             OUTPUT INSERTED.*
-            VALUES (@product_id, @pack_size, @pieces_per_box, @distributor_rate, @retailer_rate, @mrp)
+            VALUES (@product_id, @pack_size, @pieces_per_box, @distributor_rate, @retailer_rate, @old_distributor_rate, @old_retailer_rate, @mrp)
         `);
 
         res.status(201).json(result.recordset[0]);

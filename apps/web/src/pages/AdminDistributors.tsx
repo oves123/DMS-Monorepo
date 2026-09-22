@@ -4,6 +4,7 @@ import { Search, Edit, Trash2, Filter, Upload, FileText, Image, FileBadge, Eye, 
 import Papa from 'papaparse';
 import { useToast } from '../components/Toast';
 import DistributorLedgerModal from '../components/DistributorLedgerModal';
+import { useAutoSave } from '../hooks/useAutoSave';
 
 const AdminDistributors = () => {
   const [distributors, setDistributors] = useState<any[]>([]);
@@ -22,16 +23,16 @@ const AdminDistributors = () => {
   const itemsPerPage = 10;
 
   // Form State
-  const [showForm, setShowForm] = useState(false);
-  const [firmName, setFirmName] = useState('');
-  const [gstNumber, setGstNumber] = useState('');
-  const [address, setAddress] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
-  const [ownerName, setOwnerName] = useState('');
-  const [fssaiNumber, setFssaiNumber] = useState('');
-  const [rateType, setRateType] = useState('distributor');
-  const [rateVersion, setRateVersion] = useState('new');
+  const [showForm, setShowForm, clearShowForm] = useAutoSave('admin_dist_show_form', false);
+  const [firmName, setFirmName, clearFirmName] = useAutoSave('admin_dist_firm_name', '');
+  const [gstNumber, setGstNumber, clearGstNumber] = useAutoSave('admin_dist_gst', '');
+  const [address, setAddress, clearAddress] = useAutoSave('admin_dist_address', '');
+  const [phoneNumber, setPhoneNumber, clearPhoneNumber] = useAutoSave('admin_dist_phone', '');
+  const [password, setPassword, clearPassword] = useAutoSave('admin_dist_password', '');
+  const [ownerName, setOwnerName, clearOwnerName] = useAutoSave('admin_dist_owner_name', '');
+  const [fssaiNumber, setFssaiNumber, clearFssaiNumber] = useAutoSave('admin_dist_fssai', '');
+  const [rateType, setRateType, clearRateType] = useAutoSave('admin_dist_rate_type', 'distributor');
+  const [rateVersion, setRateVersion, clearRateVersion] = useAutoSave('admin_dist_rate_version', 'new');
   const [panFile, setPanFile] = useState<File | null>(null);
   const [aadharFile, setAadharFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -111,6 +112,17 @@ const AdminDistributors = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
+      clearShowForm();
+      clearFirmName();
+      clearGstNumber();
+      clearAddress();
+      clearPhoneNumber();
+      clearPassword();
+      clearOwnerName();
+      clearFssaiNumber();
+      clearRateType();
+      clearRateVersion();
+
       setShowForm(false);
       setFirmName('');
       setGstNumber('');

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../lib/api';
 import { useNavigate } from 'react-router-dom';
+import { useAutoSave } from '../hooks/useAutoSave';
 
 const AddProduct = () => {
   const navigate = useNavigate();
@@ -9,15 +10,15 @@ const AddProduct = () => {
   const [error, setError] = useState('');
 
   // Base Product State
-  const [name, setName] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [hsnCode, setHsnCode] = useState('');
-  const [gstPercent, setGstPercent] = useState('0');
+  const [name, setName, clearName] = useAutoSave('add_product_name', '');
+  const [categoryId, setCategoryId, clearCategoryId] = useAutoSave('add_product_category_id', '');
+  const [newCategoryName, setNewCategoryName, clearNewCategoryName] = useAutoSave('add_product_new_category', '');
+  const [hsnCode, setHsnCode, clearHsnCode] = useAutoSave('add_product_hsn', '');
+  const [gstPercent, setGstPercent, clearGstPercent] = useAutoSave('add_product_gst', '0');
 
   // Variants State
-  const [variants, setVariants] = useState<any[]>([
-    { pack_size: '', uom: 'Box', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' }
+  const [variants, setVariants, clearVariants] = useAutoSave<any[]>('add_product_variants', [
+    { pack_size: '', uom: 'Box', pieces_per_box: '', rate_type: 'new', distributor_rate: '', retailer_rate: '', old_distributor_rate: '', old_retailer_rate: '', mrp: '' }
   ]);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ const AddProduct = () => {
   };
 
   const addVariantRow = () => {
-    setVariants([...variants, { pack_size: '', uom: 'Box', pieces_per_box: '', distributor_rate: '', retailer_rate: '', mrp: '' }]);
+    setVariants([...variants, { pack_size: '', uom: 'Box', pieces_per_box: '', rate_type: 'new', distributor_rate: '', retailer_rate: '', old_distributor_rate: '', old_retailer_rate: '', mrp: '' }]);
   };
 
   const removeVariantRow = (index: number) => {
@@ -72,13 +73,24 @@ const AddProduct = () => {
         gst_percent: parseFloat(gstPercent) || 0,
         variants: variants.map(v => ({
           ...v,
-          nd_rate: parseFloat(v.nd_rate) || 0,
-          retailer_rate: parseFloat(v.retailer_rate) || 0,
+          distributor_rate: v.rate_type === 'old' ? 0 : (parseFloat(v.distributor_rate) || 0),
+          retailer_rate: v.rate_type === 'old' ? 0 : (parseFloat(v.retailer_rate) || 0),
+          old_distributor_rate: v.rate_type === 'new' ? null : (parseFloat(v.old_distributor_rate) || 0),
+          old_retailer_rate: v.rate_type === 'new' ? null : (parseFloat(v.old_retailer_rate) || 0),
           mrp: parseFloat(v.mrp) || 0
         }))
       };
 
       await api.post('/api/products', payload);
+      
+      // Clear auto-save after successful submission
+      clearName();
+      clearCategoryId();
+      clearNewCategoryName();
+      clearHsnCode();
+      clearGstPercent();
+      clearVariants();
+
       navigate('/admin/products');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to add product');
@@ -113,6 +125,7 @@ const AddProduct = () => {
               <select 
                 value={categoryId} 
                 onChange={e => setCategoryId(e.target.value)}
+                required
                 style={{
                   background: '#fff', border: '1px solid var(--border-color)', borderRadius: '8px', 
                   padding: '12px 16px', fontSize: '15px', color: 'var(--text-main)', outline: 'none'
@@ -155,28 +168,56 @@ const AddProduct = () => {
           </div>
 
           {variants.map((v, index) => (
-            <div key={index} className="variant-row" style={{ display: 'flex', gap: '16px', marginBottom: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '150px' }}>
+            <div key={index} className="variant-row" style={{ display: 'flex', gap: '16px', marginBottom: '16px', alignItems: 'flex-end', flexWrap: 'wrap', borderBottom: '1px dashed #e2e8f0', paddingBottom: '16px' }}>
+              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '120px' }}>
                 <label>Pack Size * (e.g. 50g)</label>
                 <input type="text" required value={v.pack_size} onChange={e => handleVariantChange(index, 'pack_size', e.target.value)} />
               </div>
-              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '100px' }}>
+              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '80px' }}>
                 <label>Pcs/Box</label>
                 <input type="number" min="1" placeholder="Auto" value={v.pieces_per_box} onChange={e => handleVariantChange(index, 'pieces_per_box', e.target.value)} />
               </div>
-              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '90px' }}>
+              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '80px' }}>
                 <label>UOM</label>
                 <input type="text" value={v.uom} onChange={e => handleVariantChange(index, 'uom', e.target.value)} />
               </div>
-              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '120px' }}>
-                <label>Distributor Rate (₹)</label>
-                <input type="number" step="0.01" required value={v.distributor_rate} onChange={e => handleVariantChange(index, 'distributor_rate', e.target.value)} />
+              
+              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '130px' }}>
+                <label>Price List *</label>
+                <select value={v.rate_type || 'new'} onChange={e => handleVariantChange(index, 'rate_type', e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                  <option value="new">New Rates Only</option>
+                  <option value="old">Old Rates Only</option>
+                  <option value="both">Both Rates</option>
+                </select>
               </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
-                <label>Retailer Rate (₹)</label>
-                <input type="number" step="0.01" required value={v.retailer_rate} onChange={e => handleVariantChange(index, 'retailer_rate', e.target.value)} />
-              </div>
-              <div className="input-group" style={{ marginBottom: 0 }}>
+
+              {(v.rate_type === 'new' || v.rate_type === 'both' || !v.rate_type) && (
+                <>
+                  <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '110px' }}>
+                    <label>New Dist Rate (₹)</label>
+                    <input type="number" step="0.01" required value={v.distributor_rate} onChange={e => handleVariantChange(index, 'distributor_rate', e.target.value)} />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '110px' }}>
+                    <label>New Ret Rate (₹)</label>
+                    <input type="number" step="0.01" required value={v.retailer_rate} onChange={e => handleVariantChange(index, 'retailer_rate', e.target.value)} />
+                  </div>
+                </>
+              )}
+
+              {(v.rate_type === 'old' || v.rate_type === 'both') && (
+                <>
+                  <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '110px' }}>
+                    <label>Old Dist Rate (₹)</label>
+                    <input type="number" step="0.01" required value={v.old_distributor_rate} onChange={e => handleVariantChange(index, 'old_distributor_rate', e.target.value)} />
+                  </div>
+                  <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '110px' }}>
+                    <label>Old Ret Rate (₹)</label>
+                    <input type="number" step="0.01" required value={v.old_retailer_rate} onChange={e => handleVariantChange(index, 'old_retailer_rate', e.target.value)} />
+                  </div>
+                </>
+              )}
+
+              <div className="input-group" style={{ marginBottom: 0, flex: 1, minWidth: '90px' }}>
                 <label>MRP (₹)</label>
                 <input type="number" step="0.01" required value={v.mrp} onChange={e => handleVariantChange(index, 'mrp', e.target.value)} />
               </div>
